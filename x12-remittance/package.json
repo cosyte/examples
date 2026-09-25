@@ -1,0 +1,19 @@
+{
+  "name": "cosyte-example-x12-remittance",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Summarise a synthetic X12 835 remittance with @cosyte/x12: the payment, each claim, its adjustments and the balance.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@cosyte/synth": "^0.0.9",
+    "@cosyte/x12": "^0.0.18"
+  }
+}
