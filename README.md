@@ -41,6 +41,7 @@ output. Each starter's README shows the expected output and walks through the co
 
 Each starter sets its `@cosyte/*` versions in its own `package.json` and commits its
 `package-lock.json`. CI installs every starter from its lockfile and runs `npm test` on Node 22 and
-24, on every pull request and every push to `main`.
+24, on every pull request and every push to `main`. Changes reach `main` only through pull requests
+that pass `All starters` (every starter on both Node lines) and `no-emdash`.
 
 Need it integrated? [Talk to us](https://cosyte.com/contact).
