@@ -1,0 +1,20 @@
+{
+  "name": "cosyte-example-cli-tour",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Walk the cosyte CLI from @cosyte/cli over a synthetic HL7 v2 message: parse, inspect, validate and convert to FHIR R4.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "bash tour.sh",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@cosyte/cli": "^0.0.6",
+    "@cosyte/hl7": "^0.0.10",
+    "@cosyte/synth": "^0.0.9"
+  }
+}

@@ -13,6 +13,7 @@ The libraries themselves live in their own repositories and are documented at
 | Starter | Libraries | What it shows | Run |
 | --- | --- | --- | --- |
 | [deid-hl7](deid-hl7) | `@cosyte/deid`, `@cosyte/hl7`, `@cosyte/synth` | An HL7 v2 admit message run through the Safe Harbor policy, and the value-free manifest of what it removed or generalized | `cd deid-hl7 && npm install && npm start` |
+| [cli-tour](cli-tour) | `@cosyte/cli`, `@cosyte/hl7`, `@cosyte/synth` | The `cosyte` command over a synthetic HL7 v2 message: parse, inspect, validate, and convert to a FHIR R4 Bundle | `cd cli-tour && npm install && npm start` |
 
 ## Run a starter
 
