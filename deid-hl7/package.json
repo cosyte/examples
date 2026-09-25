@@ -1,0 +1,20 @@
+{
+  "name": "cosyte-example-deid-hl7",
+  "version": "0.0.0",
+  "private": true,
+  "description": "De-identify a synthetic HL7 v2 ADT^A01 with @cosyte/deid and print the value-free manifest.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@cosyte/deid": "^0.0.9",
+    "@cosyte/hl7": "^0.0.10",
+    "@cosyte/synth": "^0.0.9"
+  }
+}

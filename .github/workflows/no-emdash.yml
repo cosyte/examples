@@ -1,44 +1,29 @@
 name: Em-dash gate
 
-# The brand rule (founder directive 2026-07-24, knowledgebase 06-brand/voice-and-tone.md)
-# bans U+2014 outright across every cosyte surface, and names commit messages explicitly.
-# `dates` was clean when this landed (both tracked files, `LICENSE` and `README.md`, scanned
-# free of it at `aa3f044`), so this gate exists purely to keep it that way. A green run on a
-# clean tree proves nothing on its own, which is why the script it calls refuses to print OK
-# from a scan that did not read everything.
+# The brand rule (founder directive 2026-07-24, knowledgebase 06-brand/voice-and-tone.md) bans
+# U+2014 outright across every cosyte surface and names commit messages explicitly; this repository
+# also refuses the en dash (U+2013). The job scans every tracked file and, on a pull request, the
+# title, the body and the commit messages. A green run on a clean tree proves nothing on its own,
+# which is why the script it calls refuses to print OK from a scan that did not read everything.
+# The starters themselves are tested by `starters.yml`.
 #
-# WHY THIS IS THE ONLY PULL-REQUEST GATE THIS REPO HAS TODAY:
-#
-#   `dates` has no package manifest, no lockfile and no source. The org reusable
-#   `cosyte/.github/.github/workflows/ci.yml@main` runs a fixed ladder against all three and
-#   would be RED ON ARRIVAL here, which is strictly worse than no gate: it would block the
-#   very pull requests this repo needs in order to acquire a package at all. The deferred
-#   reusables and the precondition each one waits on are written down in `.github/CI.md`;
-#   read that before adding a caller.
-#
-# WHY A SEPARATE WORKFLOW, and not a job in a shared pipeline:
-#
-#   The reusable pipeline is not an option even once it applies. hl7's `ci` job calls the org
-#   reusable, which runs a fixed ladder and no arbitrary repo script.
+# WHY A SEPARATE WORKFLOW, and not a job in `starters.yml`:
 #
 #   The deciding factor is the trigger. The PR-text half below needs the `edited` activity
 #   type, which is not a default: without it, a title or body edited after the last push is
 #   never re-checked, and since this repo squash-merges, the PR title and body ARE the commit
-#   message that lands on main. Re-running a full build matrix every time someone fixes a typo
-#   in a PR description would be a large cost for no extra safety. Same call hl7 made
-#   (hl7's own `no-emdash.yml`), and website before it, for the same reason.
+#   message that lands on main. Re-running every starter on both Node lines each time someone
+#   fixes a typo in a PR description would be a large cost for no extra safety. Same call hl7
+#   made (hl7's own `no-emdash.yml`), and website before it, for the same reason.
 #
 #   Both halves live here rather than being split across two workflows: the file scan is a
 #   checkout and one grep, so it costs nothing to re-run on `edited`, and one file is one
 #   thing to read.
 #
-# THE PR-TEXT HALF MUST NEVER BECOME A REQUIRED STATUS CHECK ON ITS OWN, and neither half is
-# a required context today. This repo has no branch ruleset, deliberately: requiring a context
-# whose workflow has never completed on `main` strands every pull request with nothing saying
-# why. Adding the ruleset is separate, later work with its own precondition (see `.github/CI.md`).
+# THE PR-TEXT HALF MUST NEVER BECOME A REQUIRED STATUS CHECK ON ITS OWN. It runs as a step of the
+# `no-emdash` job, so the job's single check covers both halves.
 #
-# Run it locally with `bash scripts/check-no-emdash.sh`. There is no package-script alias
-# because there is no package manifest yet, and this repo is not the place one gets added.
+# Run it locally with `bash scripts/check-no-emdash.sh`.
 
 on:
   push:
