@@ -1,0 +1,22 @@
+{
+  "name": "cosyte-example-hl7-mllp-listener",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Receive synthetic HL7 v2 ADT^A01 messages over MLLP, parse each with @cosyte/hl7 and answer with an HL7 ACK.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/main.js",
+    "server": "node src/server.js",
+    "send": "node src/client.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@cosyte/hl7": "^0.0.10",
+    "@cosyte/mllp": "^0.0.11",
+    "@cosyte/synth": "^0.0.9"
+  }
+}

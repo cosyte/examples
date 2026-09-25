@@ -1,0 +1,21 @@
+{
+  "name": "cosyte-example-hl7-to-fhir",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Convert a synthetic HL7 v2 ADT^A01 to a FHIR R4 Bundle with @cosyte/transform and validate it with @cosyte/fhir.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@cosyte/fhir": "^0.0.10",
+    "@cosyte/hl7": "^0.0.10",
+    "@cosyte/synth": "^0.0.9",
+    "@cosyte/transform": "^0.0.9"
+  }
+}
