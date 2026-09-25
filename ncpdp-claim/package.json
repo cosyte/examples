@@ -1,0 +1,19 @@
+{
+  "name": "cosyte-example-ncpdp-claim",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Parse a synthetic NCPDP Telecom D.0 B1 claim and its paid response with @cosyte/ncpdp.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@cosyte/ncpdp": "^0.0.13",
+    "@cosyte/synth": "^0.0.9"
+  }
+}

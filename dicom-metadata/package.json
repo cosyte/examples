@@ -1,0 +1,19 @@
+{
+  "name": "cosyte-example-dicom-metadata",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Read the metadata of a synthetic DICOM Part 10 file with @cosyte/dicom, then de-identify the header with @cosyte/deid.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@cosyte/deid": "^0.0.9",
+    "@cosyte/dicom": "^0.0.19"
+  }
+}
