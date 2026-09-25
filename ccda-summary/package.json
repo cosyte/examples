@@ -1,0 +1,19 @@
+{
+  "name": "cosyte-example-ccda-summary",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Parse a synthetic C-CDA document with @cosyte/ccda and print its problems, medications and allergies.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@cosyte/ccda": "^0.0.15",
+    "@cosyte/synth": "^0.0.9"
+  }
+}
