@@ -12,6 +12,8 @@ The libraries themselves live in their own repositories and are documented at
 
 | Starter | Libraries | What it shows | Run |
 | --- | --- | --- | --- |
+| [x12-eligibility](x12-eligibility) | `@cosyte/x12`, `@cosyte/synth` | A 271 eligibility response read into payer, subscriber, coverage status and benefit lines | `cd x12-eligibility && npm install && npm start` |
+| [x12-remittance](x12-remittance) | `@cosyte/x12`, `@cosyte/synth` | An 835 remittance summarized: the payment, each claim's status, amounts and adjustment reasons, and the balance check | `cd x12-remittance && npm install && npm start` |
 | [deid-hl7](deid-hl7) | `@cosyte/deid`, `@cosyte/hl7`, `@cosyte/synth` | An HL7 v2 admit message run through the Safe Harbor policy, and the value-free manifest of what it removed or generalized | `cd deid-hl7 && npm install && npm start` |
 | [cli-tour](cli-tour) | `@cosyte/cli`, `@cosyte/hl7`, `@cosyte/synth` | The `cosyte` command over a synthetic HL7 v2 message: parse, inspect, validate, and convert to a FHIR R4 Bundle | `cd cli-tour && npm install && npm start` |
 
