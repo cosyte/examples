@@ -12,6 +12,8 @@ The libraries themselves live in their own repositories and are documented at
 
 | Starter | Libraries | What it shows | Run |
 | --- | --- | --- | --- |
+| [hl7-mllp-listener](hl7-mllp-listener) | `@cosyte/mllp`, `@cosyte/hl7`, `@cosyte/synth` | An MLLP listener that parses each ADT^A01 it receives, prints a summary and answers with an ACK; a client sends it a synthetic message | `cd hl7-mllp-listener && npm install && npm start` |
+| [hl7-to-fhir](hl7-to-fhir) | `@cosyte/transform`, `@cosyte/fhir`, `@cosyte/hl7`, `@cosyte/synth` | An ADT^A01 converted to a FHIR R4 message Bundle (Patient, Encounter, MessageHeader), each resource then validated | `cd hl7-to-fhir && npm install && npm start` |
 | [x12-eligibility](x12-eligibility) | `@cosyte/x12`, `@cosyte/synth` | A 271 eligibility response read into payer, subscriber, coverage status and benefit lines | `cd x12-eligibility && npm install && npm start` |
 | [x12-remittance](x12-remittance) | `@cosyte/x12`, `@cosyte/synth` | An 835 remittance summarized: the payment, each claim's status, amounts and adjustment reasons, and the balance check | `cd x12-remittance && npm install && npm start` |
 | [deid-hl7](deid-hl7) | `@cosyte/deid`, `@cosyte/hl7`, `@cosyte/synth` | An HL7 v2 admit message run through the Safe Harbor policy, and the value-free manifest of what it removed or generalized | `cd deid-hl7 && npm install && npm start` |
