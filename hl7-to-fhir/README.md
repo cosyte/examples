@@ -24,8 +24,8 @@ they are listed in `package.json` beside it.
 Synthetic ADT^A01 from @cosyte/synth (seed 12345):
   MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|20220305042943||ADT^A01|SYNTH4722901508|P|2.5
   EVN|A01|20220305042943
-  PID|1||26068087^^^COSYTE-SYNTH^MR||Quillfeather^Fixtura||19610809|M|||7117 Sample Street^^Synthville^MN^00000||(528) 555-0105||||||969373218
-  PV1|1|E|SYNTHWARD^529^01
+  PID|1||26068087^^^COSYTE-SYNTH^MR||Quillfeather^Fixtura||19610809|M|||7117 Sample Street^^Synthville^MN^00000||(528) 555-0105||||||969217321
+  PV1|1|E|SYNTHWARD^909^01
 
 FHIR R4 Bundle from @cosyte/transform (type message, identifier SYNTH4722901508):
   MessageHeader  urn:uuid:00000000-0000-4000-8000-000000000003
@@ -50,6 +50,7 @@ Transform diagnostics (severity, code, v2 location, FHIR path):
   information  TRANSFORM_REQUIRED_ELEMENT_UNKNOWN  MSH.3   MessageHeader.source.endpoint
   warning      TRANSFORM_TIMESTAMP_NO_TIMEZONE     TS.1    dateTime
   information  TRANSFORM_ELEMENT_DROPPED           MSH.7   Bundle.timestamp
+  information  TRANSFORM_SEGMENT_NOT_EMITTED       EVN[1]
 
 Validation with @cosyte/fhir (strict mode, starter-kit profiles):
   Bundle         errors 0, warnings 0, information 1 (RESOURCE_NOT_MODELED)
@@ -87,17 +88,22 @@ profile flags `Patient.identifier.system`.
    - `generateId`: numbered `urn:uuid:` fullUrls, so the output is the same on every run. Leave it
      out in production and the transform uses `crypto.randomUUID`. The transform identifies entries
      by fullUrl and leaves `Resource.id` unset.
-3. Every diagnostic the transform raises is value-free: a severity, a stable code, a v2 location and
-   a FHIR path. `MSH-7` carries no UTC offset and `Bundle.timestamp` needs one, so the transform
-   leaves the timestamp out rather than guess one: that is the `TS.1` warning and the `MSH.7` row. If
-   you know your sender's offset, pass `assumeTimezoneOffsetMinutes`; the timestamp is then kept and
-   the warning still marks it as asserted.
+3. Every diagnostic the transform raises is value-free: a severity, a stable code, a v2 location
+   and, where one applies, a FHIR path. `MSH-7` carries no UTC offset and `Bundle.timestamp` needs
+   one, so the transform leaves the timestamp out rather than guess one: that is the `TS.1` warning
+   and the `MSH.7` row. If you know your sender's offset, pass `assumeTimezoneOffsetMinutes`; the
+   timestamp is then kept and the warning still marks it as asserted. The `EVN[1]` row says that the
+   `EVN` segment reached no resource in the Bundle although the implementation guide publishes a map
+   for it, so the Bundle does not carry what that segment said.
 4. `validateResource` from `@cosyte/fhir` validates the Bundle, then each entry on its own. On a
-   Bundle it checks the entries' fullUrls, the references between them and the safety rules that
-   apply anywhere (an unknown `modifierExtension`, for example), but not each resource's own rules,
-   such as the codes allowed in `Patient.gender`. Strict mode makes an element the schema does not
-   define an error. `STARTER_PROFILES` adds the starter-kit profiles: the Patient one requires
-   `identifier.system` and `identifier.value`.
+   Bundle it runs the safety rules that apply anywhere (an unknown `modifierExtension`, for example)
+   and a Bundle-integrity check, but not each resource's own rules, such as the codes allowed in
+   `Patient.gender`. The integrity check resolves `Type/id` and `#` references and counts a
+   `urn:uuid:` reference as external, so it does not check that the transform's references reach an
+   entry: the starter prints whether the Encounter's subject is the Patient entry, and the test
+   checks it. Strict mode makes an element the schema does not define an error. `STARTER_PROFILES`
+   adds the starter-kit profiles: the Patient one requires `identifier.system` and
+   `identifier.value`.
 5. The printed values are read from the FHIR model with `resolvePath`, so each one is what the
    transform wrote. `serializeResource(bundle)` from `@cosyte/fhir` gives you the Bundle as FHIR JSON.
 
@@ -105,15 +111,15 @@ The code is in [`src/convert.js`](src/convert.js) and [`src/main.js`](src/main.j
 
 ## Limits
 
-- `@cosyte/fhir` 0.0.10 has a structural schema for `Patient` and `Observation` only. For `Bundle`,
-  `MessageHeader` and `Encounter` it checks the base resource elements and the safety rules, and
-  reports `RESOURCE_NOT_MODELED` (information) to say that their own elements were not checked. Zero
-  errors here is not a full FHIR conformance verdict.
+- `@cosyte/fhir` 0.1.0 has no structural schema for `Bundle`, `MessageHeader` or `Encounter`. For
+  those three it checks the base resource elements and the safety rules, and reports
+  `RESOURCE_NOT_MODELED` (information) to say that their own elements were not checked. Zero errors
+  here is not a full FHIR conformance verdict.
 - The Patient carries `PID-3` (identifiers), `PID-5` (name), `PID-7` (birth date), `PID-8` (sex) and
   `PID-11` (address). `PID-13` (phone) and `PV1-3` (location) are dropped with a diagnostic.
-  `PID-19` (SSN) is dropped without one in `@cosyte/transform` 0.0.9, although the implementation
+  `PID-19` (SSN) is dropped without one in `@cosyte/transform` 0.1.0, although the implementation
   guide maps it to `Patient.identifier`.
-- With `@cosyte/fhir` 0.0.10, `resolvePath` returns a repeating element named by the last path
+- With `@cosyte/fhir` 0.1.0, `resolvePath` returns a repeating element named by the last path
   segment (`entry`, `name.given`) as one list node rather than its items. `nodesAt` in
   [`src/convert.js`](src/convert.js) flattens it.
 - US Core profiles are not bundled with `@cosyte/fhir`. To validate against them, read each

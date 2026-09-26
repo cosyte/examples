@@ -30,8 +30,8 @@ $ node src/make-fixtures.js out
 Wrote out/adt-a01.hl7, a synthetic ADT^A01 from @cosyte/synth (seed 12345):
   MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|20220305042943||ADT^A01|SYNTH4722901508|P|2.5
   EVN|A01|20220305042943
-  PID|1||26068087^^^COSYTE-SYNTH^MR||Quillfeather^Fixtura||19610809|M|||7117 Sample Street^^Synthville^MN^00000||(528) 555-0105||||||969373218
-  PV1|1|E|SYNTHWARD^529^01
+  PID|1||26068087^^^COSYTE-SYNTH^MR||Quillfeather^Fixtura||19610809|M|||7117 Sample Street^^Synthville^MN^00000||(528) 555-0105||||||969217321
+  PV1|1|E|SYNTHWARD^909^01
 exit 0
 
 == 1. parse: detect the format and write the message as typed JSON
@@ -174,7 +174,7 @@ from reserved or fictional ranges. It is not real patient data. The tour generat
 The `@cosyte/*` versions are set in [`package.json`](package.json). After changing one, run
 `npm install` to refresh `package-lock.json`, then `npm test`. The tour prints `cosyte --version`
 first, so you can tell which CLI produced your output. `@cosyte/cli` 0.0.6 pins its own
-`@cosyte/hl7` (0.0.7), so npm installs that copy for the CLI next to the 0.0.10 this starter uses to
+`@cosyte/hl7` (0.0.7), so npm installs that copy for the CLI next to the 0.1.0 this starter uses to
 generate and read the message.
 
 Need it integrated? [Talk to us](https://cosyte.com/contact).

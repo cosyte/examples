@@ -105,7 +105,7 @@ The code is in [`src/claim.js`](src/claim.js) and [`src/main.js`](src/main.js).
 
 ## Limits
 
-- `@cosyte/synth` 0.0.9 writes Quantity Dispensed as a whole number of units (`31`), without the three
+- `@cosyte/synth` 0.1.0 writes Quantity Dispensed as a whole number of units (`31`), without the three
   implied decimal places the field carries, so it reads as 0.031. A claim for 31 units carries `31000`.
   We print what the wire says rather than correct it.
 - `@cosyte/ncpdp` reads each group-separated block of a transmission as its own transaction, and the

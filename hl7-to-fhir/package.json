@@ -13,9 +13,9 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@cosyte/fhir": "^0.0.10",
-    "@cosyte/hl7": "^0.0.10",
-    "@cosyte/synth": "^0.0.9",
-    "@cosyte/transform": "^0.0.9"
+    "@cosyte/fhir": "^0.1.0",
+    "@cosyte/hl7": "^0.1.0",
+    "@cosyte/synth": "^0.1.0",
+    "@cosyte/transform": "^0.1.0"
   }
 }

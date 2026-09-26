@@ -1,4 +1,5 @@
 // @ts-check
+import { toISO } from "@cosyte/x12";
 import { balanceChecks, describeClaim, readRemittance, syntheticRemittance } from "./remittance.js";
 
 const SEED = 42;
@@ -10,9 +11,14 @@ const terminator = interchange.delimiters.segment;
 console.log(`Synthetic 835 from @cosyte/synth (seed ${SEED}):`);
 for (const segment of wire.split(terminator).filter(Boolean)) console.log(`  ${segment}${terminator}`);
 
-/** A `CCYYMMDD` date as `YYYY-MM-DD`; @cosyte/x12 0.1.0 adds `toISO` for this. @param {string} value */
+/**
+ * A `CCYYMMDD` date (BPR-16, PLB-02) as `YYYY-MM-DD`. Those elements always carry the `D8` shape, so
+ * `toISO` reads them; a value that is not a calendar date prints as sent.
+ *
+ * @param {string} value
+ */
 function day(value) {
-  return /^\d{8}$/.test(value) ? `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6)}` : value;
+  return toISO({ formatQualifier: "D8", value }) ?? value;
 }
 
 /** @param {import("@cosyte/x12").X12RemitParty | undefined} party */

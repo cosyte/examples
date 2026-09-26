@@ -33,25 +33,27 @@ Synthetic CT header (804 bytes of DICOM Part 10, built in memory):
   Series instance UID  2.25.91500837647300718321059351149439276398
   Parse warnings       none
 
-De-identified header (830 bytes, read back from the written file):
-  (0008,0016) SOPClassUID             1.2.840.10008.5.1.4.1.1.2
-  (0008,0018) SOPInstanceUID          2.25.86704070274506178779869117891871399775162034538788250112726
-  (0008,0020) StudyDate               (empty)
-  (0008,0030) StudyTime               (empty)
-  (0008,0050) AccessionNumber         (empty)
-  (0008,0060) Modality                CT
-  (0008,0090) ReferringPhysicianName  (empty)
-  (0010,0010) PatientName             (empty)
-  (0010,0020) PatientID               (empty)
-  (0010,0030) PatientBirthDate        (empty)
-  (0010,0040) PatientSex              (empty)
-  (0020,000D) StudyInstanceUID        2.25.27220899364256410842694272346482303969957183573538923698291
-  (0020,000E) SeriesInstanceUID       2.25.76808116996479560595985857159634965361995450169669996222346
-  (0020,0010) StudyID                 (empty)
-  (0020,0011) SeriesNumber            1
-  (0020,0013) InstanceNumber          1
-  (0012,0062) PatientIdentityRemoved  YES
-  (0012,0063) DeidentificationMethod  Cosyte @cosyte/deid, PS3.15 Basic Application Level Confidentiality Profile (metadata only); policy "safe-harbor"
+De-identified header (962 bytes, read back from the written file):
+  (0008,0016) SOPClassUID                              1.2.840.10008.5.1.4.1.1.2
+  (0008,0018) SOPInstanceUID                           2.25.86704070274506178779869117891871399775162034538788250112726
+  (0008,0020) StudyDate                                (empty)
+  (0008,0030) StudyTime                                (empty)
+  (0008,0050) AccessionNumber                          (empty)
+  (0008,0060) Modality                                 CT
+  (0008,0090) ReferringPhysicianName                   (empty)
+  (0010,0010) PatientName                              (empty)
+  (0010,0020) PatientID                                (empty)
+  (0010,0030) PatientBirthDate                         (empty)
+  (0010,0040) PatientSex                               (empty)
+  (0012,0062) PatientIdentityRemoved                   YES
+  (0012,0063) DeidentificationMethod                   Cosyte @cosyte/deid, PS3.15 Basic Application Level Confidentiality Profile (metadata only); policy "safe-harbor"
+  (0012,0064) DeidentificationMethodCodeSequence       (sequence, 1 item)
+  (0020,000D) StudyInstanceUID                         2.25.27220899364256410842694272346482303969957183573538923698291
+  (0020,000E) SeriesInstanceUID                        2.25.76808116996479560595985857159634965361995450169669996222346
+  (0020,0010) StudyID                                  (empty)
+  (0020,0011) SeriesNumber                             1
+  (0020,0013) InstanceNumber                           1
+  (0028,0303) LongitudinalTemporalInformationModified  REMOVED
 
 Manifest (value-free: locus, category, transform, disposition, code):
   (0008,0018) SOP Instance UID           OTHER_UNIQUE_ID pseudonymize transformed DEID_CATEGORY_PSEUDONYMIZED
@@ -82,8 +84,11 @@ Found in the manifest: 0
 
 The output is the same on every run: the synthetic UIDs come from fixed names, and `@cosyte/dicom`
 derives each replacement UID from its source UID. The patient attributes are emptied, Institution
-Name, Issuer of Patient ID and the two descriptions are removed, the Study, Series and SOP Instance
-UIDs are replaced, and the pass records itself in `(0012,0062)` and `(0012,0063)`.
+Name, Issuer of Patient ID and the two descriptions are removed, and the Study, Series and SOP
+Instance UIDs are replaced. The pass records itself in `(0012,0062)`, in the text of `(0012,0063)`
+and as the code `113100` (Basic Application Confidentiality Profile) in `(0012,0064)`, and it sets
+Longitudinal Temporal Information Modified `(0028,0303)` to `REMOVED`, which tells a receiver the
+dates and times were removed.
 
 ## Test
 
@@ -94,7 +99,9 @@ npm test
 The test runs `src/main.js` and checks the metadata lines against the values parsed from the synthetic
 file. It then de-identifies the header in process and checks that no identifying value from the input
 appears in the written file or in the manifest, that each UID is replaced and recorded in the shared
-UID map, and that the manifest names the category of the patient name, ID and birth date.
+UID map, and that the manifest names the category of the patient name, ID and birth date. Last, it
+checks that the pass records itself as text and as a code, marks the dates removed, and writes the
+data set in ascending tag order.
 
 ## How it works
 
@@ -128,12 +135,10 @@ The code is in [`src/part10.js`](src/part10.js), [`src/dicom.js`](src/dicom.js) 
 - This is metadata-only de-identification: pixels are never inspected. The synthetic object has no Pixel
   Data. For an object whose Pixel Data is not marked `BurnedInAnnotation` `NO`,
   `burnedInAnnotationHazard` is `true`: do not release it before a pixel-capable review.
-- With `@cosyte/deid` 0.0.9, the De-identification Method text written to `(0012,0063)` is 113
+- With `@cosyte/deid` 0.1.0, the De-identification Method text written to `(0012,0063)` is 113
   characters, longer than the 64 an `LO` value allows, so `@cosyte/dicom` reports
   `DICOM_DEIDENT_METHOD_VALUE_OVER_LENGTH`. A receiver that enforces the length may reject that
-  attribute.
-- With `@cosyte/dicom` 0.0.19, `serializeDicom` writes the two attributes the pass adds, `(0012,0062)`
-  and `(0012,0063)`, after the rest of the data set instead of in ascending tag order.
+  attribute. The coded method in `(0012,0064)` names the same profile within the length limits.
 - The replacement UIDs are `2.25.` followed by 59 digits of a SHA-256 hash, while PS3.5 section B.2
   describes a `2.25` UID as a 128-bit UUID of at most 39 digits. To place them under a UID root your
   organization owns, pass it as `uidRoot` to `deidentifyDicom`.
