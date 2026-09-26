@@ -1,5 +1,4 @@
 // @ts-check
-import { createDeidContext } from "@cosyte/deid";
 import { deidentifyHl7 } from "@cosyte/deid/hl7";
 import { parseHL7 } from "@cosyte/hl7";
 import { generateAdt } from "@cosyte/synth/hl7";
@@ -30,15 +29,16 @@ export function patientIdentifiers(message) {
 /**
  * De-identify an HL7 v2 message under the built-in Safe Harbor policy.
  *
- * The key only feeds keyed transforms (a pseudonymized identifier). It stays in this process: it
- * never appears in the output message or in the manifest.
+ * The policy uses no keyed transform, so it needs no key: a surrogate computed from the medical
+ * record number would be derived from the patient's own identifier, which Safe Harbor does not
+ * permit, so the policy removes the number instead. Besides the manifest of what it acted on, the
+ * pass returns `unexaminedResiduals`: each value-bearing position it handed through without a rule,
+ * by locus and count, never by value.
  *
  * @param {string} wire
- * @param {string} key
  */
-export function deidentifyMessage(wire, key) {
+export function deidentifyMessage(wire) {
   const input = parseHL7(wire);
-  const context = createDeidContext({ key });
-  const { document, manifest } = deidentifyHl7(input, { context });
-  return { input, output: document, manifest };
+  const { document, manifest, unexaminedResiduals } = deidentifyHl7(input);
+  return { input, output: document, manifest, residuals: unexaminedResiduals };
 }

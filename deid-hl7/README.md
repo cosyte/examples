@@ -2,7 +2,8 @@
 
 Run a synthetic HL7 v2 admit message through the Safe Harbor policy of
 [`@cosyte/deid`](https://github.com/cosyte/deid) and print the value-free manifest: which identifier
-categories it acted on, at which locus, and how, without a single value.
+categories it acted on, at which locus, and how, without a single value. It also lists the positions
+the policy passed through without a rule, so you can see what it did not examine.
 
 Libraries: [`@cosyte/deid`](https://github.com/cosyte/deid),
 [`@cosyte/hl7`](https://github.com/cosyte/hl7), [`@cosyte/synth`](https://github.com/cosyte/synth).
@@ -14,7 +15,7 @@ npm install
 npm start
 ```
 
-Node 22 or later. Set `DEID_KEY` to your own key to keep keyed surrogates stable across runs.
+Node 22 or later. The Safe Harbor policy uses no key, so every run prints the same output.
 
 ## Expected output
 
@@ -22,32 +23,43 @@ Node 22 or later. Set `DEID_KEY` to your own key to keep keyed surrogates stable
 Synthetic ADT^A01 from @cosyte/synth (seed 12345):
   MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|20220305042943||ADT^A01|SYNTH4722901508|P|2.5
   EVN|A01|20220305042943
-  PID|1||26068087^^^COSYTE-SYNTH^MR||Quillfeather^Fixtura||19610809|M|||7117 Sample Street^^Synthville^MN^00000||(528) 555-0105||||||969373218
-  PV1|1|E|SYNTHWARD^529^01
+  PID|1||26068087^^^COSYTE-SYNTH^MR||Quillfeather^Fixtura||19610809|M|||7117 Sample Street^^Synthville^MN^00000||(528) 555-0105||||||969217321
+  PV1|1|E|SYNTHWARD^909^01
 
 De-identified (Safe Harbor policy):
-  MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|20220305042943||ADT^A01|SYNTH4722901508|P|2.5
-  EVN|A01|20220305042943
-  PID|1||34849eb5da9a9fe1440f06695c18316404e6f7496f890f3135274cec3d6e648f^^^COSYTE-SYNTH^MR||||1961|M|||^^^^000||||||||
-  PV1|1|E|SYNTHWARD^529^01
+  MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|2022||ADT^A01|SYNTH4722901508|P|2.5
+  EVN|A01|2022
+  PID|1||^^^COSYTE-SYNTH^MR||||1961|M|||^^^^000||||||||
+  PV1|1|E|SYNTHWARD^909^01
 
 Manifest (value-free: locus, category, transform, disposition, code):
-  PID-3[0]     MRN          pseudonymize transformed  DEID_CATEGORY_PSEUDONYMIZED
+  MSH-7[0]     DATES        generalize   transformed  DEID_RESIDUAL_RETAINED
+  EVN-2[0]     DATES        generalize   transformed  DEID_RESIDUAL_RETAINED
+  PID-3[0]     MRN          redact       removed      DEID_CATEGORY_REMOVED
   PID-5        NAMES        redact       removed      DEID_CATEGORY_REMOVED
   PID-7        DATES        generalize   transformed  DEID_RESIDUAL_RETAINED
   PID-11[0]    GEOGRAPHIC   generalize   transformed  DEID_RESIDUAL_RETAINED
   PID-13       PHONE        redact       removed      DEID_CATEGORY_REMOVED
   PID-19       SSN          redact       removed      DEID_CATEGORY_REMOVED
 
+Unexamined residuals (value-free: 19 positions passed through without a rule):
+  MSH-1 MSH-2 MSH-3 MSH-4 MSH-5 MSH-6 MSH-9.1 MSH-9.2 MSH-10 MSH-11 MSH-12
+  EVN-1
+  PID-1 PID-8
+  PV1-1 PV1-2 PV1-3.1 PV1-3.2 PV1-3.3
+
 Input identifiers checked: 7
 Found in the de-identified message: 0
 Found in the manifest: 0
+Found in the residual list: 0
 ```
 
-The surrogate in `PID-3` is a keyed HMAC of the medical record number, so it differs from run to run
-unless `DEID_KEY` is set. The name, phone and national identifier are removed, the date of birth keeps
-only its year, and the address keeps only the Safe Harbor three-digit ZIP (`000` for a restricted
-prefix).
+The medical record number in `PID-3` is removed, and its assigning authority and type code stay. The
+name, phone and national identifier are removed too. The date of birth and the message and event
+timestamps (`MSH-7`, `EVN-2`) keep only their year, and the address keeps only the Safe Harbor
+three-digit ZIP (`000` for a restricted prefix). The unexamined residuals are the positions no rule
+named, from the message control ID in `MSH-10` to the patient location in `PV1-3`: the policy passed
+them through unchanged, and the list says where they are, never what they hold.
 
 ## Test
 
@@ -55,9 +67,11 @@ prefix).
 npm test
 ```
 
-The test runs `src/main.js` and checks the manifest rows for the name, date of birth, phone and
-national identifier. It then de-identifies the message again in process and checks that no identifier
-read from the input `PID` segment appears in the output message or in the manifest.
+The test runs `src/main.js` and checks the manifest rows for the medical record number, name, date
+of birth, phone, national identifier and the two timestamps. It then de-identifies the message again
+in process and checks that no identifier read from the input `PID` segment appears in the output
+message, the manifest or the residual list, and that each of the three dates keeps its year and
+nothing finer.
 
 ## How it works
 
@@ -65,12 +79,18 @@ read from the input `PID` segment appears in the output message or in the manife
    through `@cosyte/hl7`'s own builder. The same seed gives the same bytes everywhere.
 2. `parseHL7` from `@cosyte/hl7` parses it. `@cosyte/deid` locates identifiers structurally in that
    model (PID-5 is the patient name because the standard says so), not by pattern matching the text.
-3. `deidentifyHl7(message, { context })` from `@cosyte/deid/hl7` returns a new message and the
-   manifest. The input message is never changed.
-4. `createDeidContext({ key })` holds the key for keyed transforms. The key never appears in the
-   output or in the manifest.
+3. `deidentifyHl7(message)` from `@cosyte/deid/hl7` applies the built-in Safe Harbor policy and
+   returns a new message, the manifest and `unexaminedResiduals`: every value-bearing position the
+   pass handed through without a rule, counted by locus. The input message is never changed.
+4. The Safe Harbor policy needs no key. A surrogate computed from the medical record number would be
+   derived from the patient's own identifier, which 45 CFR 164.514(c) does not allow as a
+   re-identification code, so the policy removes the number. For surrogates that stay consistent
+   across documents, pass these options from `@cosyte/deid` instead:
+   `profileOptions(LIMITED_DATA_SET_PROFILE, createDeidContext({ key, patientId }))`. That profile
+   also shifts dates by a keyed per-patient offset, and it does not claim Safe Harbor.
 5. `src/main.js` ends with a check you can keep in your own pipeline: every identifier read from the
-   input is searched for in the output and in the manifest, and the process exits 1 if one is found.
+   input is searched for in the output, the manifest and the residual list, and the process exits 1
+   if one is found.
 
 The code is in [`src/deid.js`](src/deid.js) and [`src/main.js`](src/main.js).
 
@@ -79,9 +99,10 @@ The code is in [`src/deid.js`](src/deid.js) and [`src/main.js`](src/main.js).
 - The output is transformed per the configured Safe Harbor policy. It is not certified as
   de-identified, and `@cosyte/deid` renders no Expert Determination.
 - Free text in `OBX-5` and `NTE-3` and any Z-segment are blocked by default, not scrubbed.
-- The manifest lists what the policy acted on, and only that. With `@cosyte/deid` 0.0.9, the message
-  and event timestamps (`MSH-7`, `EVN-2`) pass through unchanged and are not in the manifest: review
-  the output against the positions your own policy must cover.
+- The manifest lists what the policy acted on, and the residual list what it passed through without
+  a rule. Neither says whether a passed-through value identifies someone: here that covers the
+  message control ID (`MSH-10`) and the patient location (`PV1-3`). Review the residual list against
+  the positions your own policy must cover.
 
 ## Synthetic data
 
