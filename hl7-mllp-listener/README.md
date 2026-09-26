@@ -35,12 +35,12 @@ MLLP listener started on 127.0.0.1 (port chosen by the OS).
 Client sends a synthetic ADT^A01 from @cosyte/synth (seed 12345):
   MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|20220305042943||ADT^A01|SYNTH4722901508|P|2.5
   EVN|A01|20220305042943
-  PID|1||26068087^^^COSYTE-SYNTH^MR||Quillfeather^Fixtura||19610809|M|||7117 Sample Street^^Synthville^MN^00000||(528) 555-0105||||||969373218
-  PV1|1|E|SYNTHWARD^529^01
+  PID|1||26068087^^^COSYTE-SYNTH^MR||Quillfeather^Fixtura||19610809|M|||7117 Sample Street^^Synthville^MN^00000||(528) 555-0105||||||969217321
+  PV1|1|E|SYNTHWARD^909^01
 Listener parsed it:
   ADT^A01, control id SYNTH4722901508
   patient Fixtura Quillfeather, MRN 26068087
-  visit class E, location SYNTHWARD, room 529, bed 01
+  visit class E, location SYNTHWARD, room 909, bed 01
 Client received the ACK:
   MSA|AA|SYNTH4722901508
   MSA-1 is AA and MSA-2 matches the MSH-10 sent (SYNTH4722901508)
@@ -48,12 +48,12 @@ Client received the ACK:
 Client sends a synthetic ADT^A01 from @cosyte/synth (seed 33333):
   MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|20230420123717||ADT^A01|SYNTH8223032376|P|2.5
   EVN|A01|20230420123717
-  PID|1||92347734^^^COSYTE-SYNTH^MR||Reprodus^Synthos||19870107|F|||2169 Example Boulevard^^Synthville^CT^00000||(911) 555-0129||||||936906191
-  PV1|1|I|SYNTHWARD^411^01
+  PID|1||92347734^^^COSYTE-SYNTH^MR||Reprodus^Synthos||19870107|F|||2169 Example Boulevard^^Synthville^CT^00000||(911) 555-0129||||||936480619
+  PV1|1|I|SYNTHWARD^068^01
 Listener parsed it:
   ADT^A01, control id SYNTH8223032376
   patient Synthos Reprodus, MRN 92347734
-  visit class I, location SYNTHWARD, room 411, bed 01
+  visit class I, location SYNTHWARD, room 068, bed 01
 Client received the ACK:
   MSA|AA|SYNTH8223032376
   MSA-1 is AA and MSA-2 matches the MSH-10 sent (SYNTH8223032376)

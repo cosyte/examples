@@ -2,7 +2,7 @@
   "name": "cosyte-example-x12-eligibility",
   "version": "0.0.0",
   "private": true,
-  "description": "Read plan and coverage facts out of a synthetic X12 271 eligibility response with @cosyte/x12.",
+  "description": "Read plan and coverage facts out of a synthetic X12 271 eligibility response with @cosyte/x12, and build the 270 inquiry it answers.",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -13,7 +13,7 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@cosyte/synth": "^0.0.9",
-    "@cosyte/x12": "^0.0.18"
+    "@cosyte/synth": "^0.1.0",
+    "@cosyte/x12": "^0.1.0"
   }
 }

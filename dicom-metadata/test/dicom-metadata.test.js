@@ -5,7 +5,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { parseDicom } from "@cosyte/dicom";
-import { deidentifyHeader, identifyingValues, readMetadata } from "../src/dicom.js";
+import { deidentifyHeader, displayValue, identifyingValues, readMetadata } from "../src/dicom.js";
 import { EXPLICIT_VR_LITTLE_ENDIAN, syntheticCtHeader } from "../src/part10.js";
 
 const run = promisify(execFile);
@@ -26,6 +26,8 @@ test("npm start prints the metadata, the de-identified header and a clean check"
   // The de-identified header keeps the patient attributes empty and says it was de-identified.
   assert.match(stdout, /^ {2}\(0010,0010\) PatientName +\(empty\)$/m);
   assert.match(stdout, /^ {2}\(0012,0062\) PatientIdentityRemoved +YES$/m);
+  assert.match(stdout, /^ {2}\(0012,0064\) DeidentificationMethodCodeSequence +\(sequence, 1 item\)$/m);
+  assert.match(stdout, /^ {2}\(0028,0303\) LongitudinalTemporalInformationModified +REMOVED$/m);
   assert.match(stdout, /Found in the de-identified file: 0/);
   assert.match(stdout, /Found in the manifest: 0/);
 });
@@ -81,4 +83,20 @@ test("de-identification leaves no identifying value and remaps UIDs consistently
   assert.equal(categoryAt("(0010,0020)"), "MRN");
   assert.equal(categoryAt("(0010,0030)"), "DATES");
   assert.equal(burnedInAnnotationHazard, false);
+
+  // The pass records itself as text and as a code, marks the dates removed, and the written data set
+  // is in ascending tag order.
+  /** @param {import("@cosyte/dicom").Dataset | undefined} dataset @param {string} tag */
+  const textAt = (dataset, tag) => {
+    const element = dataset?.get(tag);
+    return element === undefined ? undefined : displayValue(element);
+  };
+  assert.equal(textAt(output, "00120062"), "YES");
+  const codes = output.get("00120064")?.value;
+  const [method] = codes?.kind === "sequence" ? codes.items : [];
+  assert.equal(textAt(method, "00080100"), "113100");
+  assert.equal(textAt(method, "00080102"), "DCM");
+  assert.equal(textAt(output, "00280303"), "REMOVED");
+  const tags = output.elements().map((element) => element.tag);
+  assert.deepEqual(tags, [...tags].sort(), "the written data set is in ascending tag order");
 });

@@ -13,7 +13,7 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@cosyte/deid": "^0.0.9",
-    "@cosyte/dicom": "^0.0.19"
+    "@cosyte/deid": "^0.1.0",
+    "@cosyte/dicom": "^0.1.0"
   }
 }

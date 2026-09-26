@@ -93,10 +93,10 @@ The code is in [`src/results.js`](src/results.js) and [`src/main.js`](src/main.j
 
 ## Limits
 
-- `@cosyte/synth` 0.0.9 writes its sender and analyzer identifiers into H.3 and H.4, which E1394
+- `@cosyte/synth` 0.1.0 writes its sender and analyzer identifiers into H.3 and H.4, which E1394
   defines as the message control ID and the access password, so the sender reads `not sent` and both
   identifiers are listed under other fields.
-- `@cosyte/synth` 0.0.9 writes each test's name and LOINC after the local code, in components 5 and 6
+- `@cosyte/synth` 0.1.0 writes each test's name and LOINC after the local code, in components 5 and 6
   of the Universal Test ID, instead of components 2 and 1. `@cosyte/astm` models components 1 to 4 and
   keeps the rest verbatim in `universalTestId.components` without reading them as a name or a code, so
   the table shows the local code alone. A test name in component 2 prints beside the code.

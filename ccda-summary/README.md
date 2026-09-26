@@ -18,7 +18,7 @@ Node 22 or later.
 ## Expected output
 
 ```text
-Synthetic CCD from @cosyte/synth (seed 198), 15667 characters of XML:
+Synthetic CCD from @cosyte/synth (seed 198), 16493 characters of XML:
   Document type  ccd (LOINC 34133-9, Summarization of Episode Note)
   Patient        Voidwin Reprodus, MRN 13352434, born 1973-04-08, gender F
   Warnings       none
@@ -78,15 +78,16 @@ The code is in [`src/ccda.js`](src/ccda.js) and [`src/main.js`](src/main.js).
 
 ## Limits
 
-- `@cosyte/synth` 0.0.9 writes active entries only, one allergy with one reaction, and no Severity or
+- `@cosyte/synth` 0.1.0 writes active entries only, one allergy with one reaction, and no Severity or
   Criticality observation. It draws each code from its example pools on its own, so the record is not
   clinically coherent: read it as parser input, not as a patient.
 - `@cosyte/ccda` checks that a code's system is one expected for its slot. It does not check that the
   code exists in that system; for that, pass your own terminology service as the `terminology` option
   of `parseCcda`.
-- With `@cosyte/ccda` 0.0.15, `npm install` prints a deprecation notice for `@xmldom/xmldom` 0.9.10,
-  the XML parser that release pins exactly, and `npm audit` reports advisories against it. This
-  starter does not override the pin.
+- With `@cosyte/ccda` 0.1.0, `npm install` prints a deprecation notice for `@xmldom/xmldom` 0.9.10,
+  the XML parser that release pins exactly, and `npm audit` reports advisories against it (one of
+  them high severity) with no fix available, because the pin is exact. This starter does not override
+  the pin.
 
 ## Synthetic data
 

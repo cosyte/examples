@@ -24,53 +24,53 @@ Synthetic 835 from @cosyte/synth (seed 42):
   ISA*00*          *00*          *ZZ*SYNSUB448      *ZZ*SYNRCV084      *240321*2317*^*00501*441887323*0*T*:~
   GS*HP*SYNSUB448*SYNRCV084*20240321*2317*83976*X*005010X221A1~
   ST*835*7813*005010X221A1~
-  BPR*I*926.00*C*ACH************20240321~
-  TRN*1*7271155*1633489880~
-  N1*PR*MOCK NATIONAL INSURER~
-  N3*8640 Placeholder Avenue~
-  N4*Synthville*MO*00000~
-  REF*2U*SYN90748~
+  BPR*I*1733.00*C*ACH************20240321~
+  TRN*1*6727115*1563348988~
+  N1*PR*PLACEHOLDER BENEFIT ADMIN~
+  N3*4698 Mock Road~
+  N4*Synthville*IN*00000~
+  REF*2U*SYN99074~
   N1*PE*MOCK CARE ASSOCIATES*XX*5462419363~
-  N3*8640 Placeholder Avenue~
-  N4*Synthville*MO*00000~
+  N3*4698 Mock Road~
+  N4*Synthville*IN*00000~
   LX*1~
-  CLP*PTACCT320984*1*967.00*926.00*41.00*MB*ICN614202026*11::1~
+  CLP*PTACCT032098*1*1803.00*1733.00*70.00*MB*ICN461420202*11::1~
   NM1*QC*1*Nonesuch*Sampleton****MI*MBR81711168~
   NM1*82*2*MOCK CARE ASSOCIATES*****XX*5462419363~
   DTM*232*20240321~
   DTM*233*20240321~
-  SVC*HC:99214:25*967.00*926.00~
+  SVC*HC:99214:25*1803.00*1733.00~
   DTM*472*20240321~
-  CAS*PR*1*41.00~
-  AMT*B6*926.00~
+  CAS*PR*1*70.00~
+  AMT*B6*1733.00~
   SE*21*7813~
   GE*1*83976~
   IEA*1*441887323~
 
 Payment (BPR, TRN):
-  amount                 926.00 (credit)
+  amount                 1733.00 (credit)
   method                 ACH
   date                   2024-03-21
-  trace                  7271155, originator 1633489880
+  trace                  6727115, originator 1563348988
 
-Payer: MOCK NATIONAL INSURER (REF 2U SYN90748)
+Payer: PLACEHOLDER BENEFIT ADMIN (REF 2U SYN99074)
 Payee: MOCK CARE ASSOCIATES (XX 5462419363)
 
-Claim PTACCT320984 (payer claim number ICN614202026)
+Claim PTACCT032098 (payer claim number ICN461420202)
   status                 1 Processed as Primary
-  charged                967.00
-  paid                   926.00
-  patient responsibility 41.00
+  charged                1803.00
+  paid                   1733.00
+  patient responsibility 70.00
   claim adjustments      none
-  line 1                 HC:99214:25, charged 967.00, paid 926.00
-    adjustment           PR 1 41.00: Patient Responsibility, Deductible Amount
+  line 1                 HC:99214:25, charged 1803.00, paid 1733.00
+    adjustment           PR 1 70.00: Patient Responsibility, Deductible Amount
 
 Provider-level adjustments (PLB): none
 
 Balance (exact decimal arithmetic):
-  balanced        claim PTACCT320984 line 1: 967.00 charged = 926.00 paid + 41.00 adjusted
-  balanced        claim PTACCT320984: 967.00 charged = 926.00 paid + 41.00 adjusted
-  balanced        payment: 926.00 paid = 926.00 paid on claims - 0.00 provider adjustments
+  balanced        claim PTACCT032098 line 1: 1803.00 charged = 1733.00 paid + 70.00 adjusted
+  balanced        claim PTACCT032098: 1803.00 charged = 1733.00 paid + 70.00 adjusted
+  balanced        payment: 1733.00 paid = 1733.00 paid on claims - 0.00 provider adjustments
 
 Warnings (parse and 835 reader): 0
 ```
@@ -119,7 +119,7 @@ The code is in [`src/remittance.js`](src/remittance.js) and [`src/main.js`](src/
 
 ## Limits
 
-- With `@cosyte/synth` 0.0.9 the 835 carries one claim with one service line, one
+- With `@cosyte/synth` 0.1.0 the 835 carries one claim with one service line, one
   patient-responsibility adjustment and no provider-level adjustment, so the `PLB` term here is
   0.00. The test adds a `PLB` to exercise it.
 - The synthetic 835 is built to exercise the reader, not to pass a trading partner's edits. For

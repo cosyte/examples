@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@cosyte/cli": "^0.0.6",
-    "@cosyte/hl7": "^0.0.10",
-    "@cosyte/synth": "^0.0.9"
+    "@cosyte/hl7": "^0.1.0",
+    "@cosyte/synth": "^0.1.0"
   }
 }

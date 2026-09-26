@@ -1,17 +1,20 @@
 // @ts-check
 import {
   DATE_QUALIFIERS,
+  describeRejection,
   describeSubscriber,
   formatDate,
+  inquiryFor,
   label,
   readEligibility,
+  readInquiry,
   syntheticEligibilityResponse,
 } from "./eligibility.js";
 
 const SEED = 42;
 
 const wire = syntheticEligibilityResponse(SEED);
-const { interchange, eligibility, rejections } = readEligibility(wire);
+const { interchange, eligibility } = readEligibility(wire);
 const terminator = interchange.delimiters.segment;
 
 console.log(`Synthetic 271 from @cosyte/synth (seed ${SEED}):`);
@@ -93,6 +96,49 @@ for (const subscriber of eligibility.subscribers) {
   console.log(`Cost sharing (co-insurance, co-payment, deductible, out of pocket): ${sharing}`);
 }
 
-// On the 0.0.18 model a rejected inquiry and a member with no benefit lines look alike: read both.
-console.log(`\nInquiry rejections (AAA segments): ${rejections}`);
-console.log(`Warnings (parse and 271 reader): ${interchange.warnings.length + eligibility.warnings.length}`);
+// A rejected inquiry and a member with no benefit lines both come back with no benefits. The AAA
+// conditions tell them apart: each one carries the payer's reject reason and follow-up action codes.
+console.log(`\nInquiry rejections (AAA segments): ${eligibility.aaaConditions.length}`);
+for (const condition of eligibility.aaaConditions) console.log(`  ${describeRejection(condition)}`);
+
+/** @param {import("@cosyte/x12").X12InquiryName | undefined} name */
+function inquiryParty(name) {
+  if (name === undefined) return "not stated";
+  const who = [name.lastNameOrOrganizationName, name.firstName].filter(Boolean).join(", ");
+  return name.idCode ? `${who}, ${name.idQualifier} ${name.idCode}` : who;
+}
+
+// The question the 271 answers. @cosyte/synth writes no 270, so src/eligibility.js builds one with
+// build270 from the parties, member and trace the 271 names, and we read it back with get270Inquiry.
+const warnings = [...interchange.warnings, ...eligibility.warnings];
+const [answered] = eligibility.subscribers;
+if (answered !== undefined) {
+  const request = inquiryFor(interchange, answered);
+  const { interchange: sent, inquiry } = readInquiry(request);
+  warnings.push(...sent.warnings, ...inquiry.warnings);
+
+  console.log("\nThe 270 inquiry this 271 answers, built with build270 (@cosyte/synth writes no 270):");
+  const end = sent.delimiters.segment;
+  for (const segment of request.split(end).filter(Boolean)) console.log(`  ${segment}${end}`);
+  const source = inquiry.informationSources[0];
+  const receiver = source?.receivers[0];
+  const subscriber = receiver?.subscribers[0];
+  const trace = subscriber?.traces[0];
+  const services = (subscriber?.inquiries ?? [])
+    .flatMap((query) => query.serviceTypeCodes)
+    .map((service) => `${service.code} ${service.description ?? "(no bundled description)"}`);
+  const originator = trace?.originatingCompanyId ?? "not stated";
+  printRows("  ", [
+    ["to", inquiryParty(source?.name)],
+    ["from", inquiryParty(receiver?.name)],
+    ["about", inquiryParty(subscriber?.name)],
+    ["asks for", services.join("; ")],
+    ["trace", trace && `${trace.referenceId} (TRN-02), originator ${originator} (TRN-03)`],
+  ]);
+  // Match the answer to the question: the 271 echoes the 270's TRN-02 on the subscriber it answers.
+  const echoed = answered.traces.some((echo) => echo.referenceId === trace?.referenceId);
+  const verdict = echoed ? "echoes this trace, so it answers" : "does not echo this trace, so it does not answer";
+  console.log(`  The 271 ${verdict} this 270.`);
+}
+
+console.log(`\nWarnings (parse, 271 and 270 readers): ${warnings.length}`);
