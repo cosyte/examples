@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # A tour of the `cosyte` command from @cosyte/cli over a synthetic HL7 v2 admit message:
-# parse, inspect, validate and convert to FHIR R4. Each step prints the command it runs, what the
-# CLI printed, and the exit code. Run it with `npm start`, or `bash tour.sh` after `npm install`.
+# parse, inspect, validate, convert to FHIR R4 and de-identify. Each step prints the command it
+# runs, what the CLI printed, and the exit code. Run it with `npm start`, or `bash tour.sh` after
+# `npm install`.
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -15,6 +16,7 @@ OUT="out"
 ADT="$OUT/adt-a01.hl7"
 PARSED="$OUT/adt-a01.parsed.json"
 BUNDLE="$OUT/adt-a01.fhir.json"
+REDACTED="$OUT/adt-a01.redacted.hl7"
 PREVIEW_LINES=27
 
 # Print a step heading, with a blank line before every heading but the first.
@@ -69,3 +71,8 @@ run_to "$BUNDLE" cosyte convert "$ADT" --to fhir
 
 heading "5. inspect: the shape of the converted Bundle"
 run cosyte inspect "$BUNDLE"
+
+heading "6. redact: a de-identified copy via @cosyte/deid (exit 1, and no copy, if it blocks a locus)"
+run_to "$REDACTED" cosyte redact "$ADT"
+echo "The de-identified message in $REDACTED:"
+tr '\r' '\n' <"$REDACTED" | sed -e '/^$/d' -e 's/^/  /'

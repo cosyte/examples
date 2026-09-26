@@ -1,7 +1,7 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { delimiter, dirname, join } from "node:path";
 import { before, test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -37,6 +37,7 @@ test("every step echoes its command and exits 0", () => {
     "cosyte validate out/adt-a01.hl7",
     "cosyte convert out/adt-a01.hl7 --to fhir > out/adt-a01.fhir.json",
     "cosyte inspect out/adt-a01.fhir.json",
+    "cosyte redact out/adt-a01.hl7 > out/adt-a01.redacted.hl7",
   ];
   for (const command of commands) assert.ok(tour.includes(`\n$ ${command}\n`), `missing: $ ${command}`);
   assert.deepEqual(tour.match(/^exit \d+$/gm), commands.map(() => "exit 0"));
@@ -91,6 +92,56 @@ test("convert: a FHIR message Bundle whose Patient comes from PID", () => {
   assert.equal(patient.identifier[0].value, input.get("PID.3.1"));
 });
 
+test("redact: a de-identified copy with no PID identifier, and nothing blocked", () => {
+  assert.match(tour, /^cosyte: redact: hl7: \d+ loci acted on \(\d+ transformed, \d+ removed, 0 blocked\)$/m);
+
+  // The CLI ends its text output with a newline after the last segment's carriage return.
+  const redacted = readFileSync(out("adt-a01.redacted.hl7"), "utf8");
+  assert.deepEqual(
+    redacted.split(/[\r\n]+/).filter(Boolean).map((s) => s.slice(0, 3)),
+    segments.map((s) => s.slice(0, 3)),
+  );
+  for (const value of patientIdentifiers(wire)) {
+    assert.ok(!redacted.includes(value), "a PID identifier survived redact");
+  }
+  // Safe Harbor keeps the year of a date: the birth date keeps only the year of PID-7.
+  assert.equal(parseHL7(redacted).get("PID.7"), (input.get("PID.7") ?? "").slice(0, 4));
+});
+
+/**
+ * The tour's message with a visit number in PV1-19, which the default policy of @cosyte/deid blocks.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+function withVisitNumber(text) {
+  const withPv119 = (/** @type {string} */ segment) => {
+    const fields = segment.split("|");
+    while (fields.length < 20) fields.push("");
+    fields[19] = "SYNTHVISIT1";
+    return fields.join("|");
+  };
+  return text
+    .split("\r")
+    .map((segment) => (segment.startsWith("PV1|") ? withPv119(segment) : segment))
+    .join("\r");
+}
+
+test("redact: a message whose visit number is blocked exits 1 with no copy", async () => {
+  const file = out("adt-a01.visit-number.hl7");
+  writeFileSync(file, withVisitNumber(wire));
+  /** @type {{ code?: number, stdout?: string, stderr?: string }} */
+  const refused = await run(cosyte, ["redact", file], { env }).then(
+    () => assert.fail("redact exited 0 on a message with a blocked locus"),
+    (error) => error,
+  );
+  assert.equal(refused.code, 1);
+  assert.equal(refused.stdout, "");
+  assert.match(refused.stderr ?? "", /^cosyte: redact: .* PV1-19\S* .* DEID_LOCUS_BLOCKED$/m);
+  assert.match(refused.stderr ?? "", /^cosyte: CLI_DEID_INCOMPLETE: /m);
+  assert.ok(!(refused.stderr ?? "").includes("SYNTHVISIT1"), "the blocked value reached stderr");
+});
+
 test("the CLI's value-free surfaces carry no patient identifier", async () => {
   const identifiers = patientIdentifiers(wire);
   assert.ok(identifiers.length >= 5, `expected the synthetic PID to carry identifiers, got ${identifiers.length}`);
@@ -101,6 +152,7 @@ test("the CLI's value-free surfaces carry no patient identifier", async () => {
     (await run(cosyte, ["inspect", out("adt-a01.fhir.json")], { env })).stdout,
     (await run(cosyte, ["validate", adt], { env })).stderr,
     (await run(cosyte, ["convert", adt, "--to", "fhir"], { env })).stderr,
+    (await run(cosyte, ["redact", adt], { env })).stderr,
   ];
   for (const text of surfaces) {
     for (const value of identifiers) {

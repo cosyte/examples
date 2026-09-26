@@ -21,7 +21,7 @@ The libraries themselves live in their own repositories and are documented at
 | [dicom-metadata](dicom-metadata) | `@cosyte/dicom`, `@cosyte/deid` | DICOM Part 10 metadata read from a synthetic file, then the header de-identified with a value-free manifest | `cd dicom-metadata && npm install && npm start` |
 | [ccda-summary](ccda-summary) | `@cosyte/ccda`, `@cosyte/synth` | A C-CDA document parsed into problems, medications and allergies | `cd ccda-summary && npm install && npm start` |
 | [deid-hl7](deid-hl7) | `@cosyte/deid`, `@cosyte/hl7`, `@cosyte/synth` | An HL7 v2 admit message run through the Safe Harbor policy, the value-free manifest of what it removed or generalized, and the positions it passed through unexamined | `cd deid-hl7 && npm install && npm start` |
-| [cli-tour](cli-tour) | `@cosyte/cli`, `@cosyte/hl7`, `@cosyte/synth` | The `cosyte` command over a synthetic HL7 v2 message: parse, inspect, validate, and convert to a FHIR R4 Bundle | `cd cli-tour && npm install && npm start` |
+| [cli-tour](cli-tour) | `@cosyte/cli`, `@cosyte/hl7`, `@cosyte/synth` | The `cosyte` command over a synthetic HL7 v2 message: parse, inspect, validate, convert to a FHIR R4 Bundle, and de-identify | `cd cli-tour && npm install && npm start` |
 
 ## Run a starter
 
