@@ -5,7 +5,16 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { build271, lookupServiceType, serializeX12, X12Decimal } from "@cosyte/x12";
-import { describeSubscriber, readEligibility, syntheticEligibilityResponse } from "../src/eligibility.js";
+import {
+  INQUIRY_REFERENCE,
+  TRACE_ORIGINATOR,
+  describeRejection,
+  describeSubscriber,
+  inquiryFor,
+  readEligibility,
+  readInquiry,
+  syntheticEligibilityResponse,
+} from "../src/eligibility.js";
 
 const run = promisify(execFile);
 const starterDir = fileURLToPath(new URL("..", import.meta.url));
@@ -13,6 +22,20 @@ const SEED = 42;
 
 /** @param {string} text */
 const literal = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Split wire text into segments of elements by hand, without the library, to have a second route to
+ * every value.
+ *
+ * @param {string} wire
+ * @param {import("@cosyte/x12").Delimiters} delimiters
+ */
+function rawSegments(wire, { element, segment }) {
+  return wire
+    .split(segment)
+    .filter(Boolean)
+    .map((text) => text.split(element));
+}
 
 /** The first subscriber's facts, read from a wire text. */
 function firstSubscriber(/** @type {string} */ wire) {
@@ -39,21 +62,23 @@ test("npm start prints the payer, subscriber and benefits read from the syntheti
   const status = facts.coverageStatus.map((benefit) => `${benefit.code} ${benefit.type}`).join("; ");
   printed(`^Coverage status: ${literal(status)}$`);
   printed("^Inquiry rejections \\(AAA segments\\): 0$");
-  printed("^Warnings \\(parse and 271 reader\\): 0$");
+  printed("^  ST\\*270\\*0001\\*005010X279A1~$");
+  printed(`^  trace\\s+${literal(facts.traces[0] ?? "?")} \\(TRN-02\\), originator ${TRACE_ORIGINATOR} \\(TRN-03\\)$`);
+  printed("^  The 271 echoes this trace, so it answers this 270\\.$");
+  printed("^Warnings \\(parse, 271 and 270 readers\\): 0$");
 });
 
 test("the typed reading agrees with the raw segments of the synthetic 271", () => {
   const wire = syntheticEligibilityResponse(SEED);
-  const { interchange, eligibility, rejections } = readEligibility(wire);
-  const { element, repetition, segment } = interchange.delimiters;
-  // Split the wire text by hand, without the library, to have a second route to every value.
-  const segments = wire.split(segment).filter(Boolean).map((text) => text.split(element));
+  const { interchange, eligibility } = readEligibility(wire);
+  const { repetition } = interchange.delimiters;
+  const segments = rawSegments(wire, interchange.delimiters);
   /** @param {string} id @param {string} qualifier */
   const find = (id, qualifier) => segments.find((s) => s[0] === id && s[1] === qualifier) ?? [];
 
   assert.equal(interchange.warnings.length, 0);
   assert.equal(eligibility.warnings.length, 0);
-  assert.equal(rejections, 0);
+  assert.deepEqual(eligibility.aaaConditions, []);
   assert.equal(eligibility.subscribers.length, 1);
 
   const facts = firstSubscriber(wire);
@@ -87,7 +112,7 @@ test("the typed reading agrees with the raw segments of the synthetic 271", () =
 test("co-payment, deductible and co-insurance lines are labelled and keep their amounts exactly", () => {
   /** @param {string} text */
   const amount = (text) => X12Decimal.fromString(text) ?? assert.fail(`not a decimal: ${text}`);
-  // @cosyte/synth 0.0.9 writes no cost-sharing lines, so this test builds a small 271 through
+  // @cosyte/synth 0.1.0 writes no cost-sharing lines, so this test builds a small 271 through
   // @cosyte/x12's own build271. Every value in it is fictional.
   const built = build271({
     envelope: {
@@ -135,5 +160,77 @@ test("co-payment, deductible and co-insurance lines are labelled and keep their 
   assert.deepEqual(
     facts.coverageStatus.map((b) => [b.code, b.type]),
     [["1", "Active Coverage"]],
+  );
+});
+
+test("the 270 built for the synthetic 271 asks about its member under the trace the 271 echoes", () => {
+  const { interchange: response, eligibility } = readEligibility(syntheticEligibilityResponse(SEED));
+  const answered = eligibility.subscribers[0];
+  assert.ok(answered, "expected a subscriber in the 271");
+  const request = inquiryFor(response, answered);
+  const { interchange, inquiry } = readInquiry(request);
+  const segments = rawSegments(request, interchange.delimiters);
+  /** @param {string} id */
+  const first = (id) => segments.find((s) => s[0] === id) ?? [];
+
+  assert.equal(interchange.warnings.length, 0);
+  assert.equal(inquiry.warnings.length, 0);
+  // The inquiry runs the other way: the 271's receiver sends it to the 271's sender, as test data.
+  assert.equal(first("ISA")[6]?.trim(), response.isa.elements[8]?.trim());
+  assert.equal(first("ISA")[8]?.trim(), response.isa.elements[6]?.trim());
+  assert.equal(first("ISA")[15], "T");
+  // build270 writes the BHT header: 0022, 13 (a request) and the submitter's reference.
+  assert.deepEqual(first("BHT").slice(1, 4), ["0022", "13", INQUIRY_REFERENCE]);
+  assert.equal(inquiry.header?.referenceId, INQUIRY_REFERENCE);
+
+  // It asks the payer that answered, from the provider it answered, about the member it describes.
+  const source = inquiry.informationSources[0];
+  const receiver = source?.receivers[0];
+  const subscriber = receiver?.subscribers[0];
+  assert.equal(source?.name?.lastNameOrOrganizationName, answered.informationSource?.name);
+  assert.equal(source?.name?.idCode, answered.informationSource?.idCode);
+  assert.equal(receiver?.name?.lastNameOrOrganizationName, answered.informationReceiver?.name);
+  assert.equal(receiver?.name?.idCode, answered.informationReceiver?.idCode);
+  assert.equal(subscriber?.name?.lastNameOrOrganizationName, answered.name?.lastName);
+  assert.equal(subscriber?.name?.firstName, answered.name?.firstName);
+  assert.equal(subscriber?.name?.idCode, answered.name?.idCode);
+  assert.equal(subscriber?.name?.dateOfBirth, answered.name?.dateOfBirth);
+  assert.deepEqual(
+    (subscriber?.inquiries ?? []).flatMap((q) => q.serviceTypeCodes).map((st) => [st.code, st.description]),
+    [["30", lookupServiceType("30")?.description]],
+  );
+
+  // The 270 sends the trace with TRN-01 1; the 271 echoes its TRN-02 with TRN-01 2.
+  const trace = answered.traces[0]?.referenceId;
+  assert.deepEqual(
+    segments.filter((s) => s[0] === "TRN"),
+    [["TRN", "1", trace, TRACE_ORIGINATOR]],
+  );
+  assert.deepEqual(subscriber?.traces.map((t) => t.referenceId), [trace]);
+  assert.deepEqual(answered.traces.map((t) => t.traceTypeCode), ["2"]);
+});
+
+test("a rejected inquiry reads as a rejection, not as a member with no benefits", () => {
+  // Turn the synthetic 271 into a rejection: an AAA after the subscriber's N4, in place of the EB
+  // line. AAA-03 72 says the member ID is invalid or missing, AAA-04 C asks to correct and resubmit.
+  const wire = syntheticEligibilityResponse(SEED);
+  const { interchange } = readEligibility(wire);
+  const { element, segment } = interchange.delimiters;
+  const segments = rawSegments(wire, interchange.delimiters);
+  segments.splice(segments.findIndex((s) => s[0] === "N4") + 1, 0, ["AAA", "N", "", "72", "C"]);
+  segments.splice(segments.findIndex((s) => s[0] === "EB"), 1);
+  const rejected = segments.map((elements) => elements.join(element) + segment).join("");
+
+  const { interchange: changed, eligibility } = readEligibility(rejected);
+  assert.equal(changed.warnings.length, 0);
+  assert.equal(eligibility.subscribers[0]?.benefits.length, 0);
+  assert.equal(eligibility.aaaConditions.length, 1);
+  const [condition] = eligibility.aaaConditions;
+  assert.ok(condition);
+  assert.equal(describeRejection(condition), "subscriber (HL 3): reject reason 72, follow-up action C");
+  // @cosyte/x12 0.1.0 bundles no AAA code descriptions, so each code it reads also raises a warning.
+  assert.deepEqual(
+    eligibility.warnings.map((warning) => warning.code),
+    ["X12_271_AAA_UNKNOWN_CODE", "X12_271_AAA_UNKNOWN_CODE"],
   );
 });

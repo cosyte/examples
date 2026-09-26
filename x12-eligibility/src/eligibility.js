@@ -1,11 +1,11 @@
 // @ts-check
 import { generate271 } from "@cosyte/synth/x12";
-import { get271Eligibility, parseX12, serializeX12 } from "@cosyte/x12";
+import { build270, get270Inquiry, get271Eligibility, parseX12, serializeX12, toISO } from "@cosyte/x12";
 
 /**
  * Labels for the EB-01 benefit types this starter names. They are values of ASC X12 data element
  * 1390 (Eligibility or Benefit Information Code), which EB-01 of the 005010X279A1 271 carries.
- * @cosyte/x12 0.0.18 bundles no table for EB-01 (its `X12EligibilityBenefit` documentation names
+ * @cosyte/x12 0.1.0 bundles no table for EB-01 (its `X12EligibilityBenefit` documentation names
  * 1, 6 and I), so we keep this short list and print any other code as sent.
  *
  * @type {Readonly<Record<string, string>>}
@@ -46,18 +46,17 @@ export function label(table, code) {
 }
 
 /**
- * A DTP or DMG date for display: `D8` (`CCYYMMDD`) as `YYYY-MM-DD`, `RD8` as a range, and any other
- * format as sent. @cosyte/x12 0.1.0 adds `toISO` for the same job.
+ * A DTP or DMG date for display. `toISO` from @cosyte/x12 reads a `D8` (`CCYYMMDD`) day as
+ * `YYYY-MM-DD`. It answers `undefined` for an `RD8` range, which is not a single day, so a range
+ * prints as its two days. Anything else prints as sent, with its format qualifier.
  *
  * @param {{ formatQualifier: string, value: string }} date
  * @returns {string}
  */
 export function formatDate({ formatQualifier, value }) {
-  const day = (/** @type {string} */ text) =>
-    /^\d{8}$/.test(text) ? `${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6)}` : text;
-  if (formatQualifier === "D8") return day(value);
+  const day = (/** @type {string} */ text) => toISO({ formatQualifier: "D8", value: text }) ?? text;
   if (formatQualifier === "RD8") return value.split("-").map(day).join(" to ");
-  return `${value} (${formatQualifier})`;
+  return toISO({ formatQualifier, value }) ?? `${value} (${formatQualifier})`;
 }
 
 /**
@@ -72,25 +71,141 @@ export function syntheticEligibilityResponse(seed) {
 }
 
 /**
- * Parse an interchange and read its 271 through the typed reader.
+ * The one transaction set of a given type (ST-01) in an interchange.
+ *
+ * @param {import("@cosyte/x12").X12Interchange} interchange
+ * @param {string} type
+ */
+function transactionOf(interchange, type) {
+  const transaction = interchange.groups
+    .flatMap((group) => group.transactions)
+    .find((tx) => tx.st.elements[1] === type);
+  if (transaction === undefined) throw new Error(`the interchange carries no ${type} transaction set`);
+  return transaction;
+}
+
+/**
+ * Parse an interchange and read its 271 through the typed reader. Besides the subscribers, the
+ * reading carries `aaaConditions`: every AAA request-validation segment, the payer saying it could
+ * not process the inquiry and why. Read it before the benefits, because a rejected inquiry and a
+ * member with no benefit lines both come back with no benefits.
  *
  * @param {string} wire
  */
 export function readEligibility(wire) {
   const interchange = parseX12(wire);
-  const transaction = interchange.groups
-    .flatMap((group) => group.transactions)
-    .find((tx) => tx.st.elements[1] === "271");
-  if (transaction === undefined) throw new Error("the interchange carries no 271 transaction set");
-  const eligibility = get271Eligibility(interchange.delimiters, transaction);
+  const eligibility = get271Eligibility(interchange.delimiters, transactionOf(interchange, "271"));
   if (eligibility === undefined) throw new Error("get271Eligibility did not read the transaction set");
+  return { interchange, eligibility };
+}
 
-  // @cosyte/x12 0.0.18 does not put AAA request-validation segments (the payer saying it could not
-  // process the inquiry, and why) on the typed model. They stay on the transaction set, so we count
-  // them there: without this check, a rejected inquiry reads like a member with no benefits.
-  const rejections = transaction.segments.filter((segment) => segment.id === "AAA").length;
+/**
+ * One AAA condition as a line: where the payer placed it, and its reject reason (AAA-03) and
+ * follow-up action (AAA-04) codes exactly as sent.
+ *
+ * @param {import("@cosyte/x12").X12AaaCondition} condition
+ * @returns {string}
+ */
+export function describeRejection({ key, rejectReasonCode, followUpActionCode }) {
+  const where = `${key.level ?? "unknown level"}${key.hierarchyId ? ` (HL ${key.hierarchyId})` : ""}`;
+  const reason = rejectReasonCode?.code ?? "not stated";
+  const action = followUpActionCode?.code ?? "not stated";
+  return `${where}: reject reason ${reason}, follow-up action ${action}`;
+}
 
-  return { interchange, eligibility, rejections };
+/**
+ * TRN-03 of the inquiry: who assigned the trace. It is "1" and an EIN, "3" and a DUNS number, or "9"
+ * and an identifier you assign yourself, as this fictional one is.
+ */
+export const TRACE_ORIGINATOR = "9SYNTHETIC";
+
+/** BHT-03 of the inquiry: the submitter's own identifier for this transaction. Fictional. */
+export const INQUIRY_REFERENCE = "SYNTHREQ0001";
+
+/**
+ * The 270 inquiry that a 271 answers, as the provider would send it: the provider (information
+ * receiver) asks the payer (information source) about one member, for service type 30 (health
+ * benefit plan coverage), under a trace the payer echoes back in its 271. @cosyte/synth generates no
+ * 270, so we build one with @cosyte/x12's build270 from the parties, member and trace the synthetic
+ * 271 names. In your integration the order runs the other way: you build and send the 270, keep its
+ * trace, and match the 271 that comes back.
+ *
+ * build270 writes the BHT header and the HL hierarchy itself, and refuses a spec it cannot emit
+ * spec-clean, such as a level with no name or an inquiry that asks for nothing.
+ *
+ * @param {import("@cosyte/x12").X12Interchange} response the parsed 271 interchange
+ * @param {import("@cosyte/x12").X12EligibilitySubscriber} subscriber a subscriber read from it
+ * @returns {string} the 270 wire text
+ */
+export function inquiryFor(response, subscriber) {
+  const { informationSource: payer, informationReceiver: provider, name: member } = subscriber;
+  const trace = subscriber.traces[0]?.referenceId;
+  if (payer === undefined || provider === undefined || member === undefined || trace === undefined) {
+    throw new Error("the 271 does not name a payer, a provider, a member and a trace to ask about");
+  }
+  /** @param {import("@cosyte/x12").X12EligibilityEntity} party */
+  const organization = (party) => ({
+    entityIdentifierCode: party.entityIdentifierCode,
+    entityTypeQualifier: party.entityTypeQualifier,
+    lastNameOrOrganizationName: party.name,
+    idQualifier: party.idQualifier,
+    idCode: party.idCode,
+  });
+  // ISA-06 is the sender and ISA-08 the receiver, padded to 15. The inquiry travels the other way.
+  const isa = response.isa.elements;
+  const built = build270({
+    envelope: {
+      senderId: (isa[8] ?? "").trim(),
+      receiverId: (isa[6] ?? "").trim(),
+      interchangeDate: isa[9] ?? "",
+      interchangeTime: isa[10] ?? "",
+      interchangeControlNumber: "000000001",
+      groupControlNumber: "1",
+      transactionSetControlNumber: "0001",
+      usageIndicator: "T", // T marks test data; the builder's default is P, production.
+    },
+    // BHT-01 (0022) and BHT-02 (13, a request) default; the creation date and time default to GS.
+    header: { referenceId: INQUIRY_REFERENCE },
+    informationSources: [
+      {
+        name: organization(payer),
+        receivers: [
+          {
+            name: organization(provider),
+            subscribers: [
+              {
+                traces: [{ traceTypeCode: "1", referenceId: trace, originatingCompanyId: TRACE_ORIGINATOR }],
+                name: {
+                  entityIdentifierCode: member.entityIdentifierCode,
+                  entityTypeQualifier: member.entityTypeQualifier,
+                  lastNameOrOrganizationName: member.lastName,
+                  firstName: member.firstName,
+                  idQualifier: member.idQualifier,
+                  idCode: member.idCode,
+                  dateOfBirth: member.dateOfBirth,
+                  genderCode: member.genderCode,
+                },
+                inquiries: [{ serviceTypeCodes: [{ code: "30" }] }],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+  return serializeX12(built);
+}
+
+/**
+ * Parse an interchange and read its 270 through the typed inquiry reader.
+ *
+ * @param {string} wire
+ */
+export function readInquiry(wire) {
+  const interchange = parseX12(wire);
+  const inquiry = get270Inquiry(interchange.delimiters, transactionOf(interchange, "270"));
+  if (inquiry === undefined) throw new Error("get270Inquiry did not read the transaction set");
+  return { interchange, inquiry };
 }
 
 /**
