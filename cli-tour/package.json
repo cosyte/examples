@@ -2,7 +2,7 @@
   "name": "cosyte-example-cli-tour",
   "version": "0.0.0",
   "private": true,
-  "description": "Walk the cosyte CLI from @cosyte/cli over a synthetic HL7 v2 message: parse, inspect, validate, convert to FHIR R4 and redact.",
+  "description": "Walk the Cosyte CLI from @cosyte/cli over a synthetic HL7 v2 message: parse, inspect, validate, convert to FHIR R4 and redact.",
   "license": "MIT",
   "type": "module",
   "engines": {
