@@ -79,7 +79,7 @@ profile flags `Patient.identifier.system`.
 1. `generateAdt({ seed: 12345, trigger: "A01" })` from `@cosyte/synth/hl7` builds the admit message,
    and `parseHL7` from `@cosyte/hl7` parses it.
 2. `toFhir(message, options)` from `@cosyte/transform` builds a FHIR R4 message `Bundle`: a
-   `MessageHeader` from `MSH`, a `Patient` from `PID` and an `Encounter` from `PV1`, following the
+   `MessageHeader` from `MSH`, a `Patient` from `PID` and an `Encounter` from `PV1`, grounded on the
    maps of the HL7 Version 2 to FHIR implementation guide. Two options matter here:
    - `namingSystem`: `createNamingSystem({ authorities: { "COSYTE-SYNTH": MRN_SYSTEM } })` says which
      identifier system the assigning authority in `PID-3` stands for. Without it the transform keeps

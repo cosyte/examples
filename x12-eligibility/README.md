@@ -116,7 +116,7 @@ with no benefits.
 ## How it works
 
 1. `generate271({ seed: 42 })` from `@cosyte/synth/x12` builds the response through `@cosyte/x12`'s
-   own `build271`, and `serializeX12` turns it into the wire text a payer sends.
+   own `build271`, and `serializeX12` turns it into wire text.
 2. `parseX12` reads the interchange. The delimiters come from the ISA, and a tolerated deviation
    arrives on `warnings` with a stable code instead of an exception.
 3. `get271Eligibility(interchange.delimiters, transaction)` returns the typed 271: each subscriber

@@ -203,7 +203,7 @@ a step fails. The code is in [`tour.sh`](tour.sh) and [`src/make-fixtures.js`](s
 - `validate` calls an HL7 v2 message valid when it parses; parser warnings are shown but do not fail
   it. It is not a conformance check against a profile.
 - The `@cosyte/transform` that `@cosyte/cli` 0.1.0 installs (0.1.0) has no converter for phone
-  numbers, so the Bundle's `Patient` has no `telecom`. The drop is reported as a finding, not hidden.
+  numbers, so the Bundle's `Patient` has no `telecom`. The drop is reported as a finding.
 
 ## Synthetic data
 
