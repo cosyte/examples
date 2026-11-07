@@ -1,7 +1,9 @@
 name: CodeQL
 
-# Static analysis of the starters' JavaScript through the shared CodeQL workflow, called the way the
-# libraries call it, at one published reference pinned by its commit SHA.
+# Static analysis through the shared CodeQL workflow, called the way the libraries call it, at one
+# published reference pinned by its commit SHA. Two languages: `javascript-typescript` for the
+# starters, and `actions` for the workflows under .github/workflows/, which run with this
+# repository's token.
 
 on:
   push:
@@ -26,3 +28,5 @@ jobs:
       contents: read
       actions: read
     uses: cosyte/.github/.github/workflows/codeql.yml@6d0a8217760a8cf45f147376384962f031d92482 # workflows-2026-11-07-6d0a8217760a
+    with:
+      languages: '["actions", "javascript-typescript"]'
