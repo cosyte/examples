@@ -1,0 +1,23 @@
+name: Scorecard
+
+# OpenSSF Scorecard supply-chain analysis through the shared workflow, called the way the libraries
+# call it, at one published reference pinned by its commit SHA. It runs on main only: publishing the
+# results needs the default branch.
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Weekly, Tuesday 03:37 UTC. An odd minute: GitHub delays scheduled runs at the start of every hour.
+    - cron: "37 3 * * 2"
+
+permissions:
+  contents: read
+
+jobs:
+  scorecard:
+    permissions:
+      contents: read # required to resolve the reusable workflow (else contents:none and a startup failure)
+      security-events: write # upload the SARIF to the Security tab
+      id-token: write # publish results to the OpenSSF API (for the badge)
+    uses: cosyte/.github/.github/workflows/scorecard.yml@6d0a8217760a8cf45f147376384962f031d92482 # workflows-2026-11-07-6d0a8217760a

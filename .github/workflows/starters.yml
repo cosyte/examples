@@ -28,6 +28,7 @@ permissions:
 jobs:
   discover:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       starters: ${{ steps.list.outputs.starters }}
     steps:
@@ -78,6 +79,7 @@ jobs:
     if: always()
     needs: [discover, test]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Require discovery and every starter job to pass
         env:
