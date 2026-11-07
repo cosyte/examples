@@ -66,29 +66,29 @@ Validation with @cosyte/fhir (strict mode, starter-kit profiles):
 npm test
 ```
 
-The test runs `src/main.js` and checks the Patient name and the validation total. For four seeds that
-cover patient classes E, O and I and both sexes, it then converts the admit in process and checks the
-Bundle against the parsed HL7 input: the Patient's name, identifier, gender, birth date and address
-come from `PID`, the Encounter's class comes from `PV1-2` through the guide's map, its subject is the
-Patient entry, and `@cosyte/fhir` reports no errors. It also checks that no value from the message
-appears in the transform's diagnostics, and that without an identifier system the starter Patient
-profile flags `Patient.identifier.system`.
+The test runs `src/main.js` and checks the Patient name and the validation total. For four seeds
+that cover patient classes E, O, and I, and both sexes, it then converts the admit in process and
+checks the Bundle against the parsed HL7 input: the Patient's name, identifier, gender, birth date,
+and address come from `PID`, the Encounter's class comes from `PV1-2` through the guide's map, its
+subject is the Patient entry, and `@cosyte/fhir` reports no errors. It also checks that no value
+from the message appears in the transform's diagnostics, and that without an identifier system the
+starter Patient profile flags `Patient.identifier.system`.
 
 ## How it works
 
 1. `generateAdt({ seed: 12345, trigger: "A01" })` from `@cosyte/synth/hl7` builds the admit message,
    and `parseHL7` from `@cosyte/hl7` parses it.
 2. `toFhir(message, options)` from `@cosyte/transform` builds a FHIR R4 message `Bundle`: a
-   `MessageHeader` from `MSH`, a `Patient` from `PID` and an `Encounter` from `PV1`, grounded on the
-   maps of the HL7 Version 2 to FHIR implementation guide. Two options matter here:
-   - `namingSystem`: `createNamingSystem({ authorities: { "COSYTE-SYNTH": MRN_SYSTEM } })` says which
-     identifier system the assigning authority in `PID-3` stands for. Without it the transform keeps
-     the MRN, leaves `identifier.system` out and raises a warning, because it never builds a system
-     URI from a bare namespace.
+   `MessageHeader` from `MSH`, a `Patient` from `PID`, and an `Encounter` from `PV1`, grounded on
+   the maps of the HL7 Version 2 to FHIR implementation guide. Two options matter here:
+   - `namingSystem`: `createNamingSystem({ authorities: { "COSYTE-SYNTH": MRN_SYSTEM } })` says
+     which identifier system the assigning authority in `PID-3` stands for. Without it the transform
+     keeps the MRN, leaves `identifier.system` out, and raises a warning, because it never builds a
+     system URI from a bare namespace.
    - `generateId`: numbered `urn:uuid:` fullUrls, so the output is the same on every run. Leave it
      out in production and the transform uses `crypto.randomUUID`. The transform identifies entries
      by fullUrl and leaves `Resource.id` unset.
-3. Every diagnostic the transform raises is value-free: a severity, a stable code, a v2 location
+3. Every diagnostic the transform raises is value-free: a severity, a stable code, a v2 location,
    and, where one applies, a FHIR path. `MSH-7` carries no UTC offset and `Bundle.timestamp` needs
    one, so the transform leaves the timestamp out rather than guess one: that is the `TS.1` warning
    and the `MSH.7` row. If you know your sender's offset, pass `assumeTimezoneOffsetMinutes`; the
@@ -111,24 +111,24 @@ The code is in [`src/convert.js`](src/convert.js) and [`src/main.js`](src/main.j
 
 ## Limits
 
-- `@cosyte/fhir` 0.1.0 has no structural schema for `Bundle`, `MessageHeader` or `Encounter`. For
-  those three it checks the base resource elements and the safety rules, and reports
-  `RESOURCE_NOT_MODELED` (information) to say that their own elements were not checked. Zero errors
-  here is not a full FHIR conformance verdict.
-- The Patient carries `PID-3` (identifiers), `PID-5` (name), `PID-7` (birth date), `PID-8` (sex) and
-  `PID-11` (address). `PID-13` (phone) and `PV1-3` (location) are dropped with a diagnostic.
-  `PID-19` (SSN) is dropped without one in `@cosyte/transform` 0.1.0, although the implementation
-  guide maps it to `Patient.identifier`.
-- With `@cosyte/fhir` 0.1.0, `resolvePath` returns a repeating element named by the last path
-  segment (`entry`, `name.given`) as one list node rather than its items. `nodesAt` in
+- On the 0.1 line, `@cosyte/fhir` has no structural schema for `Bundle`, `MessageHeader`, or
+  `Encounter`. For those three it checks the base resource elements and the safety rules, and
+  reports `RESOURCE_NOT_MODELED` (information) to say that their own elements were not checked. Zero
+  errors here is not a full FHIR conformance verdict.
+- The Patient carries `PID-3` (identifiers), `PID-5` (name), `PID-7` (birth date), `PID-8` (sex),
+  and `PID-11` (address). `PID-13` (phone) and `PV1-3` (location) are dropped with a diagnostic.
+  `PID-19` (SSN) is dropped without one by `@cosyte/transform` on the 0.1 line, although the
+  implementation guide maps it to `Patient.identifier`.
+- On the 0.1 line of `@cosyte/fhir`, `resolvePath` returns a repeating element named by the last
+  path segment (`entry`, `name.given`) as one list node rather than its items. `nodesAt` in
   [`src/convert.js`](src/convert.js) flattens it.
 - US Core profiles are not bundled with `@cosyte/fhir`. To validate against them, read each
-  StructureDefinition with `parseResource`, load it with `loadStructureDefinition` and pass the
+  StructureDefinition with `parseResource`, load it with `loadStructureDefinition`, and pass the
   results as `profiles`.
 
 ## Synthetic data
 
-The message comes from `@cosyte/synth`, which draws every name, identifier, date, phone and address
+The message comes from `@cosyte/synth`, which draws every name, identifier, date, phone, and address
 from reserved or fictional ranges. It is not real patient data. The identifier system uses the
 reserved `example.org` domain.
 
@@ -137,4 +137,4 @@ reserved `example.org` domain.
 The `@cosyte/*` versions are set in [`package.json`](package.json). After changing one, run
 `npm install` to refresh `package-lock.json`, then `npm test`.
 
-Need it integrated? [Talk to us](https://cosyte.com/contact).
+Need it integrated? [Talk to us](https://cosyte.com/integration-services?utm_source=github&utm_medium=readme&utm_campaign=evergreen&utm_content=examples).

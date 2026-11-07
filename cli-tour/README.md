@@ -1,8 +1,8 @@
 # cli-tour
 
-Walk the `cosyte` command from [`@cosyte/cli`](https://github.com/cosyte/cli) over a synthetic HL7 v2
-admit message: parse it to typed JSON, summarize it, validate it, convert it to a FHIR R4 Bundle and
-de-identify it. Each step prints the command it runs, what the CLI printed and the exit code.
+Walk the `cosyte` command from [`@cosyte/cli`](https://github.com/cosyte/cli) over a synthetic
+HL7 v2 admit message: parse it to typed JSON, summarize it, validate it, convert it to a FHIR R4
+Bundle, and de-identify it. Each step prints the command it runs, what the CLI printed, and the exit code.
 
 Libraries: [`@cosyte/cli`](https://github.com/cosyte/cli), [`@cosyte/hl7`](https://github.com/cosyte/hl7),
 [`@cosyte/synth`](https://github.com/cosyte/synth).
@@ -22,7 +22,7 @@ Node 22 or later, and bash. `npm start` runs `bash tour.sh`; after `npm install`
 ```text
 == The CLI: cosyte from node_modules/.bin
 $ cosyte --version
-0.1.0
+0.1.1
 exit 0
 
 == Synthetic input from @cosyte/synth
@@ -110,7 +110,7 @@ exit 0
 
 == 6. redact: a de-identified copy via @cosyte/deid (exit 1, and no copy, if it blocks a locus)
 $ cosyte redact out/adt-a01.hl7 > out/adt-a01.redacted.hl7
-cosyte: redact: delegated to @cosyte/deid 0.1.0: Safe-Harbor-transformed per the configured policy
+cosyte: redact: delegated to @cosyte/deid 0.1.1: Safe-Harbor-transformed per the configured policy
 cosyte: redact: DATES generalize MSH-7[0] x1 transformed DEID_RESIDUAL_RETAINED
 cosyte: redact: DATES generalize EVN-2[0] x1 transformed DEID_RESIDUAL_RETAINED
 cosyte: redact: MRN redact PID-3[0] x1 removed DEID_CATEGORY_REMOVED
@@ -143,14 +143,14 @@ npm test
 ```
 
 The test runs `tour.sh`, checks that every step exited 0, and checks the `inspect` summary, the
-validation verdict, the conversion result and the redact manifest. It reads the files the tour wrote:
-the parsed JSON holds every segment and `PID` value of the input, the Bundle's `Patient` name, birth
-date and medical record number match `PID`, and the de-identified copy keeps every segment, no `PID`
-identifier and only the year of the birth date. It then adds a visit number (`PV1-19`) to the same
-message and checks that `redact` refuses it: exit `1`, nothing on stdout, and the blocked locus named
-on stderr without its value. It also checks that no identifier from `PID` reaches the `inspect`
-summaries or the notes on stderr. Expected values come from the synthetic input, not from pasted
-output.
+validation verdict, the conversion result, and the redact manifest. It reads the files the tour
+wrote: the parsed JSON holds every segment and `PID` value of the input, the Bundle's `Patient`
+name, birth date, and medical record number match `PID`, and the de-identified copy keeps every
+segment, no `PID` identifier, and only the year of the birth date. It then adds a visit number
+(`PV1-19`) to the same message and checks that `redact` refuses it: exit `1`, nothing on stdout, and
+the blocked locus named on stderr without its value. It also checks that no identifier from `PID`
+reaches the `inspect` summaries or the notes on stderr. Expected values come from the synthetic
+input, not from pasted output.
 
 ## How it works
 
@@ -161,22 +161,22 @@ output.
 3. `cosyte parse` detects the format from the content (HL7 v2 here) and prints the parsed model as
    JSON on stdout. The tour saves it to `out/adt-a01.parsed.json` and shows its first lines.
 4. `cosyte inspect` prints a structural summary with no field value in it: message type, version,
-   segment counts and the warning count.
+   segment counts, and the warning count.
 5. `cosyte validate` puts the verdict in the exit code (`0` valid, `1` invalid, `65` unparseable) and
    prints it on stderr.
-6. `cosyte convert --to fhir` passes the parsed message to `@cosyte/transform` and prints the FHIR R4
-   message Bundle on stdout. Its findings go to stderr as a severity, a code and a locator (an HL7
-   position and the FHIR path it maps to), never a field value. Here it reports seven: among them,
-   the phone number in `PID-13` and the location in `PV1-3` are dropped, a timestamp has no time
-   zone, and the `EVN` segment reaches no resource in the Bundle. An error-severity finding would make
-   it exit `1`.
+6. `cosyte convert --to fhir` passes the parsed message to `@cosyte/transform` and prints the FHIR
+   R4 message Bundle on stdout. Its findings go to stderr as a severity, a code, and a locator (an
+   HL7 position and the FHIR path it maps to), never a field value. Here it reports seven: among
+   them, the phone number in `PID-13` and the location in `PV1-3` are dropped, a timestamp has no
+   time zone, and the `EVN` segment reaches no resource in the Bundle. An error-severity finding
+   would make it exit `1`.
 7. `cosyte inspect` on the Bundle detects FHIR and prints the Bundle's type and its entries.
 8. `cosyte redact` hands the message whole to `@cosyte/deid` and prints the de-identified copy on
-   stdout. The tour saves it to `out/adt-a01.redacted.hl7` and prints its segments. stderr carries the
-   library's value-free manifest: one line per locus with the category, the action, the position, the
-   count, the disposition and a stable code. Under the library's default policy the medical record
-   number, the name, the phone number and the SSN are removed, each date keeps only its year, and the
-   address keeps only a 3-digit ZIP. The CLI passes no policy of its own.
+   stdout. The tour saves it to `out/adt-a01.redacted.hl7` and prints its segments. stderr carries
+   the library's value-free manifest: one line per locus with the category, the action, the
+   position, the count, the disposition, and a stable code. Under the library's default policy the
+   medical record number, the name, the phone number, and the SSN are removed, each date keeps only
+   its year, and the address keeps only a 3-digit ZIP. The CLI passes no policy of its own.
 
 `convert` and the FHIR commands need `@cosyte/transform` and `@cosyte/fhir`. `npm install` adds both:
 the first is an optional dependency of `@cosyte/cli`, the second a peer dependency of the first.
@@ -188,13 +188,13 @@ a step fails. The code is in [`tour.sh`](tour.sh) and [`src/make-fixtures.js`](s
 
 ## Limits
 
-- `redact` refuses rather than under-redacts. The default policy of `@cosyte/deid` 0.1.0 blocks a
-  visit number (`PV1-19`) and a placer or filler order number (`ORC-2`/`ORC-3`, `OBR-2`/`OBR-3`)
-  instead of removing it, and then `cosyte redact` prints nothing on stdout, names the blocked locus
-  on stderr (`DEID_LOCUS_BLOCKED`) and exits `1` (`CLI_DEID_INCOMPLETE`). The synthetic message has
-  no `PV1-19`, so step 6 exits `0`. Many real ADT messages carry one, so check the exit code before
-  you use the copy. To choose a policy yourself, call `@cosyte/deid` from code, as the `deid-hl7`
-  starter in this repository does.
+- `redact` refuses rather than under-redacts. On the 0.1 line, the default policy of `@cosyte/deid`
+  blocks a visit number (`PV1-19`) and a placer or filler order number (`ORC-2`/`ORC-3`,
+  `OBR-2`/`OBR-3`) instead of removing it, and then `cosyte redact` prints nothing on stdout, names
+  the blocked locus on stderr (`DEID_LOCUS_BLOCKED`), and exits `1` (`CLI_DEID_INCOMPLETE`). The
+  synthetic message has no `PV1-19`, so step 6 exits `0`. Many real ADT messages carry one, so check
+  the exit code before you use the copy. To choose a policy yourself, call `@cosyte/deid` from code,
+  as the `deid-hl7` starter in this repository does.
 - The de-identified copy is transformed per the library's Safe Harbor policy. It is not certified as
   de-identified. A position no rule covers passes through unchanged: here the message control ID
   (`MSH-10`) and the patient location (`PV1-3`).
@@ -202,20 +202,20 @@ a step fails. The code is in [`tour.sh`](tour.sh) and [`src/make-fixtures.js`](s
   Bundle on stdout carry the patient's values, because that output is the data you asked for.
 - `validate` calls an HL7 v2 message valid when it parses; parser warnings are shown but do not fail
   it. It is not a conformance check against a profile.
-- The `@cosyte/transform` that `@cosyte/cli` 0.1.0 installs (0.1.0) has no converter for phone
+- On the 0.1 line, the `@cosyte/transform` that `@cosyte/cli` installs has no converter for phone
   numbers, so the Bundle's `Patient` has no `telecom`. The drop is reported as a finding.
 
 ## Synthetic data
 
-The message comes from `@cosyte/synth`, which draws every name, identifier, date, phone and address
-from reserved or fictional ranges. It is not real patient data. The tour generates it at run time into
-`out/`, and nothing it generates is committed.
+The message comes from `@cosyte/synth`, which draws every name, identifier, date, phone, and address
+from reserved or fictional ranges. It is not real patient data. The tour generates it at run time
+into `out/`, and nothing it generates is committed.
 
 ## Versions
 
 The `@cosyte/*` versions are set in [`package.json`](package.json). After changing one, run
 `npm install` to refresh `package-lock.json`, then `npm test`. The tour prints `cosyte --version`
-first, so you can tell which CLI produced your output. `@cosyte/cli` 0.1.0 and this starter use the
-same `@cosyte/hl7` 0.1.0, so npm installs one copy.
+first, so you can tell which CLI produced your output. `@cosyte/cli` and this starter both depend on
+the 0.1 line of `@cosyte/hl7`, so npm installs one copy.
 
-Need it integrated? [Talk to us](https://cosyte.com/contact).
+Need it integrated? [Talk to us](https://cosyte.com/integration-services?utm_source=github&utm_medium=readme&utm_campaign=evergreen&utm_content=examples).

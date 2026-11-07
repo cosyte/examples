@@ -24,7 +24,7 @@ npm run server   # listens on 127.0.0.1:2575; set PORT to use another port
 npm run send     # sends one synthetic ADT^A01 to 127.0.0.1:2575 and prints the whole ACK
 ```
 
-`npm run send` also reads `HOST`, `PORT` and `SEED` (the synth seed, default 12345), and exits 1
+`npm run send` also reads `HOST`, `PORT`, and `SEED` (the synth seed, default 12345), and exits 1
 unless the answer is `AA` with a matching `MSA-2`.
 
 ## Expected output
@@ -73,7 +73,7 @@ npm test
 ```
 
 The test runs `src/main.js` and checks that each message was answered `MSA|AA|<its MSH-10>`. It then
-starts a real listener on port 0, sends a synthetic admit and reads the ACK bytes: `MSA-1` is `AA`
+starts a real listener on port 0, sends a synthetic admit, and reads the ACK bytes: `MSA-1` is `AA`
 and `MSA-2` equals the `MSH-10` that was sent. Last, it checks the negative answers: an `ORU^R01`
 gets `AR`, a payload that is not HL7 gets `AE`, and neither one reaches the admit handler.
 
@@ -91,16 +91,18 @@ connections, and the auto-ACK path lives in the server.
    `AE`, or `AR` when it throws `MllpAckError` with `ackCode: "AR"`. Put your durable write (a
    queue, a database) in the handler: the `AA` never goes out before it finishes.
 3. In the handler, `parseHL7(payload)` from `@cosyte/hl7` parses the bytes, and the summary reads
-   `message.meta` (MSH), `message.patient` (PID) and `message.visit` (PV1). A payload with no usable
-   `MSH` makes `parseHL7` throw, so it is answered `AE`. A message that is not ADT is answered `AR`.
+   `message.meta` (MSH), `message.patient` (PID), and `message.visit` (PV1). A payload with no
+   usable `MSH` makes `parseHL7` throw, so it is answered `AE`. A message that is not ADT is
+   answered `AR`.
 4. `createStarterClient({ host, port })` connects, with auto-reconnect off because this client
-   sends and exits. `client.send(bytes)` frames the message, writes it and resolves with the ACK
+   sends and exits. `client.send(bytes)` frames the message, writes it, and resolves with the ACK
    that answers it. `interpretAck` from `@cosyte/hl7` reads `MSA-1` and `MSA-2` from that ACK.
 5. `src/main.js` closes the client first and the listener second, so no socket stays open and the
    process exits 0. `npm run server` passes `handleSignals: true`, so Ctrl-C closes the listener.
 
-The code is in [`src/listener.js`](src/listener.js) (the listener, the summary and the ACK check),
-[`src/main.js`](src/main.js), [`src/server.js`](src/server.js) and [`src/client.js`](src/client.js).
+The code is in [`src/listener.js`](src/listener.js) (the listener, the summary, and the ACK check),
+[`src/main.js`](src/main.js), [`src/server.js`](src/server.js), and
+[`src/client.js`](src/client.js).
 
 ## Limits
 
@@ -119,12 +121,12 @@ The code is in [`src/listener.js`](src/listener.js) (the listener, the summary a
 
 ## Synthetic data
 
-The messages come from `@cosyte/synth`, which draws every name, identifier, date, phone and address
-from reserved or fictional ranges. It is not real patient data.
+The messages come from `@cosyte/synth`, which draws every name, identifier, date, phone, and
+address from reserved or fictional ranges. It is not real patient data.
 
 ## Versions
 
 The `@cosyte/*` versions are set in [`package.json`](package.json). After changing one, run
 `npm install` to refresh `package-lock.json`, then `npm test`.
 
-Need it integrated? [Talk to us](https://cosyte.com/contact).
+Need it integrated? [Talk to us](https://cosyte.com/integration-services?utm_source=github&utm_medium=readme&utm_campaign=evergreen&utm_content=examples).

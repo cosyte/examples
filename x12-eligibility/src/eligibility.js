@@ -5,8 +5,8 @@ import { build270, get270Inquiry, get271Eligibility, parseX12, serializeX12, toI
 /**
  * Labels for the EB-01 benefit types this starter names. They are values of ASC X12 data element
  * 1390 (Eligibility or Benefit Information Code), which EB-01 of the 005010X279A1 271 carries.
- * @cosyte/x12 0.1.0 bundles no table for EB-01 (its `X12EligibilityBenefit` documentation names
- * 1, 6 and I), so we keep this short list and print any other code as sent.
+ * The @cosyte/x12 0.1 line bundles no table for EB-01 (its `X12EligibilityBenefit` documentation
+ * names 1, 6, and I), so we keep this short list and print any other code as sent.
  *
  * @type {Readonly<Record<string, string>>}
  */

@@ -36,7 +36,7 @@ PATTERN='\x{2014}|\x{2013}|%E2%80%94|%E2%80%93|\\u2014|\\u2013|&mdash;|&ndash;|&
 # clean result is believed. `printf` emits U+2014 as its UTF-8 bytes, so this file
 # still never contains the literal character.
 if ! printf 'a\xe2\x80\x94b\n' | grep -qP "$PATTERN" || ! printf 'a\xe2\x80\x93b\n' | grep -qP "$PATTERN"; then
-  echo "ERROR: check-no-emdash - the scanner cannot match a known dash." >&2
+  echo "ERROR: check-no-emdash: the scanner cannot match a known dash." >&2
   echo "       grep -P is unavailable or not in UTF-8 mode (LC_ALL=${LC_ALL})." >&2
   echo "       Refusing to report a clean tree on a scanner that cannot see." >&2
   exit 1
@@ -46,7 +46,7 @@ fail_with_hits() {
   local what="$1" hits="$2"
   echo "$hits" >&2
   echo "" >&2
-  echo "ERROR: check-no-emdash - em or en dash (U+2014, U+2013, or an encoded form) found in ${what}." >&2
+  echo "ERROR: check-no-emdash: em or en dash (U+2014, U+2013, or an encoded form) found in ${what}." >&2
   echo "       Cosyte never uses em or en dashes (06-brand/voice-and-tone.md)." >&2
   echo "       Rewrite with a period, colon, comma, or parentheses." >&2
   exit 1
@@ -65,7 +65,7 @@ refuse_if_incomplete() {
   [ -s "$ERRLOG" ] || return 0
   cat "$ERRLOG" >&2
   echo "" >&2
-  echo "ERROR: check-no-emdash - the scan reported errors, so it did not read all of" >&2
+  echo "ERROR: check-no-emdash: the scan reported errors, so it did not read all of" >&2
   echo "       its input. Refusing to report green from an incomplete scan." >&2
   exit 1
 }
@@ -107,7 +107,7 @@ cd "$(git rev-parse --show-toplevel)"
 #
 #   no -I: -I skips any file grep reads as binary, which includes a text file holding
 #   invalid UTF-8, so an em dash inside one would be skipped silently. This repo is
-#   markdown and a licence today, with no binaries at all. Losing -I makes a future
+#   markdown and a license today, with no binaries at all. Losing -I makes a future
 #   binary a loud false positive (grep prints "Binary file X matches", the gate goes
 #   red, a human looks) instead of a silent miss. Fail closed, not open.
 #
@@ -125,7 +125,7 @@ cd "$(git rev-parse --show-toplevel)"
 git ls-files -z > "$FILELIST"
 
 if [ ! -s "$FILELIST" ]; then
-  echo "ERROR: check-no-emdash - no tracked files to scan. Refusing to report green" >&2
+  echo "ERROR: check-no-emdash: no tracked files to scan. Refusing to report green" >&2
   echo "       from a scan that read nothing." >&2
   exit 1
 fi

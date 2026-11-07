@@ -1,8 +1,8 @@
 # x12-remittance
 
 Summarize a synthetic X12 835 remittance with [`@cosyte/x12`](https://github.com/cosyte/x12): the
-payment and its trace number, the payer and payee, each claim with its status, amounts and
-adjustments, and a check that recomputes the 835's three balance equations with exact decimal
+payment and its trace number; the payer and payee; each claim with its status, amounts, and
+adjustments; and a check that recomputes the 835's three balance equations with exact decimal
 arithmetic.
 
 Libraries: [`@cosyte/x12`](https://github.com/cosyte/x12),
@@ -85,13 +85,13 @@ says why.
 npm test
 ```
 
-The test runs `src/main.js` and checks the payment, claim status, amounts, adjustments and balance
-lines it prints against a fresh reading of the same 835. It then splits the 835 into segments by hand,
-without the library, and checks the typed reading against the raw `BPR`, `TRN`, `CLP` and `CAS`
-segments. Two more tests change the 835 before reading it. Raising `BPR-02` by 1.00 must report the
-payment out of balance, and `get835` must warn `X12_835_REMIT_BALANCE_MISMATCH`. Adding a 10.00
-provider-level take-back (`PLB`) and lowering `BPR-02` to match must still balance, which pins the
-sign: a positive `PLB` amount reduces the payment.
+The test runs `src/main.js` and checks the payment, claim status, amounts, adjustments, and balance
+lines it prints against a fresh reading of the same 835. It then splits the 835 into segments by
+hand, without the library, and checks the typed reading against the raw `BPR`, `TRN`, `CLP`, and
+`CAS` segments. Two more tests change the 835 before reading it. Raising `BPR-02` by 1.00 must
+report the payment out of balance, and `get835` must warn `X12_835_REMIT_BALANCE_MISMATCH`. Adding a
+10.00 provider-level take-back (`PLB`) and lowering `BPR-02` to match must still balance, which pins
+the sign: a positive `PLB` amount reduces the payment.
 
 ## How it works
 
@@ -119,15 +119,15 @@ The code is in [`src/remittance.js`](src/remittance.js) and [`src/main.js`](src/
 
 ## Limits
 
-- With `@cosyte/synth` 0.1.0 the 835 carries one claim with one service line, one
-  patient-responsibility adjustment and no provider-level adjustment, so the `PLB` term here is
+- On the 0.1 line of `@cosyte/synth`, the 835 carries one claim with one service line, one
+  patient-responsibility adjustment, and no provider-level adjustment, so the `PLB` term here is
   0.00. The test adds a `PLB` to exercise it.
 - The synthetic 835 is built to exercise the reader, not to pass a trading partner's edits. For
   example it names `ACH` as the payment method without the bank routing elements that go with it, and
   the payer and payee share one address.
 - Descriptions come from the subsets `@cosyte/x12` bundles. A claim status or CARC outside them
   prints as the code with "(no bundled description)". Remark codes (`LQ`, `MOA`), supplemental
-  amounts (`AMT`) and service dates are on the model and are not printed.
+  amounts (`AMT`), and service dates are on the model and are not printed.
 - The balance check says whether the 835 adds up. It does not check the amounts against your contract
   or against the claim you sent.
 - The output shows the raw 835, which includes a patient name and member ID because the data is
@@ -135,13 +135,13 @@ The code is in [`src/remittance.js`](src/remittance.js) and [`src/main.js`](src/
 
 ## Synthetic data
 
-The 835 comes from `@cosyte/synth`, which draws every name, identifier, date and amount from reserved
-or fictional ranges: the NPIs fail their check digit on purpose and the ZIPs are `00000`. It is not
-real patient data. Two tests change that synthetic 835 in memory; no fixture is committed.
+The 835 comes from `@cosyte/synth`, which draws every name, identifier, date, and amount from
+reserved or fictional ranges: the NPIs fail their check digit on purpose and the ZIPs are `00000`.
+It is not real patient data. Two tests change that synthetic 835 in memory; no fixture is committed.
 
 ## Versions
 
 The `@cosyte/*` versions are set in [`package.json`](package.json). After changing one, run
 `npm install` to refresh `package-lock.json`, then `npm test`.
 
-Need it integrated? [Talk to us](https://cosyte.com/contact).
+Need it integrated? [Talk to us](https://cosyte.com/integration-services?utm_source=github&utm_medium=readme&utm_campaign=evergreen&utm_content=examples).

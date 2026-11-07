@@ -2,7 +2,7 @@
   "name": "cosyte-example-x12-remittance",
   "version": "0.0.0",
   "private": true,
-  "description": "Summarise a synthetic X12 835 remittance with @cosyte/x12: the payment, each claim, its adjustments and the balance.",
+  "description": "Summarize a synthetic X12 835 remittance with @cosyte/x12: the payment, each claim, its adjustments, and the balance.",
   "license": "MIT",
   "type": "module",
   "engines": {

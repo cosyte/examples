@@ -1,9 +1,9 @@
 # ncpdp-claim
 
 Parse a synthetic NCPDP Telecom D.0 billing claim (B1) and a paid response to it with
-[`@cosyte/ncpdp`](https://github.com/cosyte/ncpdp), and print what a pharmacy biller checks: routing,
-product, quantity and the amounts submitted, then the claim's status and the amounts paid, with every
-amount read as text and never as a floating-point number.
+[`@cosyte/ncpdp`](https://github.com/cosyte/ncpdp), and print what a pharmacy biller checks:
+routing, product, quantity, and the amounts submitted, then the claim's status and the amounts paid,
+with every amount read as text and never as a floating-point number.
 
 Libraries: [`@cosyte/ncpdp`](https://github.com/cosyte/ncpdp),
 [`@cosyte/synth`](https://github.com/cosyte/synth).
@@ -69,45 +69,46 @@ npm test
 ```
 
 The test runs `src/main.js` and checks the product line, the echoed prescription number, the paid
-status and that neither parse raised a warning. It then reads the claim in process and checks the claim
-view against the Claim segment's own fields, checks that the paid response echoes the claim and that
-its total paid equals ingredient cost plus dispensing fee minus patient pay, and checks that a rejected
-response reads as rejected with every reject code in wire order, even when its status field says paid.
+status, and that neither parse raised a warning. It then reads the claim in process and checks the
+claim view against the Claim segment's own fields, checks that the paid response echoes the claim
+and that its total paid equals ingredient cost plus dispensing fee minus patient pay, and checks
+that a rejected response reads as rejected with every reject code in wire order, even when its
+status field says paid.
 
 ## How it works
 
-1. `generateB1({ seed: 1 })` from `@cosyte/synth/ncpdp` builds a B1 claim through `@cosyte/ncpdp`'s own
-   `buildTelecomRequest` and `serializeTelecom`. It carries Patient, Insurance, Prescriber and Claim
-   segments but no Pricing segment, so `syntheticClaim` parses it and rebuilds it with a Pricing segment
-   (11) through the same builder, which refuses a field ID that is not two characters or a value that
-   holds a separator.
+1. `generateB1({ seed: 1 })` from `@cosyte/synth/ncpdp` builds a B1 claim through `@cosyte/ncpdp`'s
+   own `buildTelecomRequest` and `serializeTelecom`. It carries Patient, Insurance, Prescriber, and
+   Claim segments but no Pricing segment, so `syntheticClaim` parses it and rebuilds it with a
+   Pricing segment (11) through the same builder, which refuses a field ID that is not two
+   characters or a value that holds a separator.
 2. `parseTelecom` reads the claim: the fixed 56-byte header (BIN, version, transaction code, PCN,
    pharmacy, date of service) and the segments, each a list of two-character field IDs and their
-   values. `claim(transaction)` lifts the fields a biller checks: group, prescription and fill, product
-   and its qualifier, quantity and days supply. The library has no view over the Pricing segment, so
-   `submittedPricing` reads it by field ID with `findSegment` and `fieldValue`.
+   values. `claim(transaction)` lifts the fields a biller checks: group, prescription and fill,
+   product and its qualifier, quantity, and days supply. The library has no view over the Pricing
+   segment, so `submittedPricing` reads it by field ID with `findSegment` and `fieldValue`.
 3. Money never becomes a JavaScript number. `telecomMoney` keeps the wire text in `source` and applies
    the implied decimal places and the sign string-wise into `amount`. The last character carries the
    sign: `{` and `A` to `I` are +0 to +9, `}` and `J` to `R` are -0 to -9. Quantity Dispensed works the
    same way with three implied decimal places, and qualifier `03` marks the product ID as an NDC.
 4. `@cosyte/synth` generates Telecom requests only, and `@cosyte/ncpdp` builds requests only, so
    `syntheticResponse` writes the payer's answer as wire text: a response header that echoes the
-   transaction code, the pharmacy and the date of service, then a group separator and the Response
-   Status (21), Response Claim (22, echoing the prescription number) and Response Pricing (23)
+   transaction code, the pharmacy, and the date of service, then a group separator and the Response
+   Status (21), Response Claim (22, echoing the prescription number), and Response Pricing (23)
    segments. `parseTelecom` tells a response from a request by where `D0` sits in the header.
-5. `adjudication(response)` returns the status, pricing and DUR views. Its `disposition` comes from the
-   status field and the reject codes together, and a reject always wins: a response whose status says
-   `P` but carries a reject code reads as rejected, with `statusConflict` set. Reject codes come back
-   verbatim, in wire order. `syntheticResponse(request, ["75"])` writes a rejected answer, and the test
-   reads one.
+5. `adjudication(response)` returns the status, pricing, and DUR views. Its `disposition` comes from
+   the status field and the reject codes together, and a reject always wins: a response whose status
+   says `P` but carries a reject code reads as rejected, with `statusConflict` set. Reject codes
+   come back verbatim, in wire order. `syntheticResponse(request, ["75"])` writes a rejected answer,
+   and the test reads one.
 
 The code is in [`src/claim.js`](src/claim.js) and [`src/main.js`](src/main.js).
 
 ## Limits
 
-- `@cosyte/synth` 0.1.0 writes Quantity Dispensed as a whole number of units (`31`), without the three
-  implied decimal places the field carries, so it reads as 0.031. A claim for 31 units carries `31000`.
-  We print what the wire says rather than correct it.
+- On the 0.1 line, `@cosyte/synth` writes Quantity Dispensed as a whole number of units (`31`),
+  without the three implied decimal places the field carries, so it reads as 0.031. A claim for 31
+  units carries `31000`. We print what the wire says rather than correct it.
 - `@cosyte/ncpdp` reads each group-separated block of a transmission as its own transaction, and the
   views (`claim`, `adjudication`) read the first. The response here puts all of its segments after one
   group separator. Segments placed before it, such as a Response Message (20) or Response Insurance
@@ -115,7 +116,7 @@ The code is in [`src/claim.js`](src/claim.js) and [`src/main.js`](src/main.js).
   Check `transaction.warnings` before you trust a view.
 - The response header is decoded through the pharmacy ID. The date of service that follows it is on
   the wire but not in `responseHeader`.
-- One claim, one response, and no DUR, coordination of benefits or compound segments.
+- One claim, one response, and no DUR, coordination of benefits, or compound segments.
   `@cosyte/ncpdp` reads those too (`responseDur`, `responseCob`, `compound`).
 
 ## Synthetic data
@@ -133,4 +134,4 @@ data.
 The `@cosyte/*` versions are set in [`package.json`](package.json). After changing one, run
 `npm install` to refresh `package-lock.json`, then `npm test`.
 
-Need it integrated? [Talk to us](https://cosyte.com/contact).
+Need it integrated? [Talk to us](https://cosyte.com/integration-services?utm_source=github&utm_medium=readme&utm_campaign=evergreen&utm_content=examples).

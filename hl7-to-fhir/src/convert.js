@@ -54,8 +54,8 @@ export function convertToFhir(wire) {
 /**
  * The nodes an element path selects, in document order.
  *
- * `resolvePath` flattens the repeating elements it walks through, but with @cosyte/fhir 0.1.0 a
- * repeating element named by the last segment (`entry`, `name.given`) comes back as one list node
+ * `resolvePath` flattens the repeating elements it walks through, but on the @cosyte/fhir 0.1 line
+ * a repeating element named by the last segment (`entry`, `name.given`) comes back as one list node
  * rather than its items, so we flatten that list here too.
  *
  * @param {FhirNode} node

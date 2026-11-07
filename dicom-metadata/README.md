@@ -1,8 +1,9 @@
 # dicom-metadata
 
-Read the patient, study and series metadata of a synthetic DICOM Part 10 file with
+Read the patient, study, and series metadata of a synthetic DICOM Part 10 file with
 [`@cosyte/dicom`](https://github.com/cosyte/dicom), then de-identify the header with
-[`@cosyte/deid`](https://github.com/cosyte/deid) and print the value-free manifest of what it changed.
+[`@cosyte/deid`](https://github.com/cosyte/deid) and print the value-free manifest of what it
+changed.
 
 Libraries: [`@cosyte/dicom`](https://github.com/cosyte/dicom), [`@cosyte/deid`](https://github.com/cosyte/deid).
 
@@ -83,10 +84,10 @@ Found in the manifest: 0
 ```
 
 The output is the same on every run: the synthetic UIDs come from fixed names, and `@cosyte/dicom`
-derives each replacement UID from its source UID. The patient attributes are emptied, Institution
-Name, Issuer of Patient ID and the two descriptions are removed, and the Study, Series and SOP
-Instance UIDs are replaced. The pass records itself in `(0012,0062)`, in the text of `(0012,0063)`
-and as the code `113100` (Basic Application Confidentiality Profile) in `(0012,0064)`, and it sets
+derives each replacement UID from its source UID. The patient attributes are emptied; Institution
+Name, Issuer of Patient ID, and the two descriptions are removed; and the Study, Series, and SOP
+Instance UIDs are replaced. The pass records itself in `(0012,0062)`, in the text of `(0012,0063)`,
+and as the code `113100` (Basic Application Confidentiality Profile) in `(0012,0064)`. It also sets
 Longitudinal Temporal Information Modified `(0028,0303)` to `REMOVED`, which tells a receiver the
 dates and times were removed.
 
@@ -96,19 +97,19 @@ dates and times were removed.
 npm test
 ```
 
-The test runs `src/main.js` and checks the metadata lines against the values parsed from the synthetic
-file. It then de-identifies the header in process and checks that no identifying value from the input
-appears in the written file or in the manifest, that each UID is replaced and recorded in the shared
-UID map, and that the manifest names the category of the patient name, ID and birth date. Last, it
-checks that the pass records itself as text and as a code, marks the dates removed, and writes the
-data set in ascending tag order.
+The test runs `src/main.js` and checks the metadata lines against the values parsed from the
+synthetic file. It then de-identifies the header in process and checks that no identifying value
+from the input appears in the written file or in the manifest, that each UID is replaced and
+recorded in the shared UID map, and that the manifest names the category of the patient name, ID,
+and birth date. Last, it checks that the pass records itself as text and as a code, marks the dates
+removed, and writes the data set in ascending tag order.
 
 ## How it works
 
-1. `syntheticCtHeader()` in `src/part10.js` writes a small Part 10 file: the 128-byte preamble, `DICM`,
-   the File Meta group naming Explicit VR Little Endian, then 20 patient, study, series and instance
-   attributes and no Pixel Data. `@cosyte/dicom` reads and re-writes Part 10, but it has no public API
-   for building a new object, so the starter writes these bytes itself.
+1. `syntheticCtHeader()` in `src/part10.js` writes a small Part 10 file: the 128-byte preamble,
+   `DICM`, the File Meta group naming Explicit VR Little Endian, then 20 patient, study, series, and
+   instance attributes and no Pixel Data. `@cosyte/dicom` reads and re-writes Part 10, but it has no
+   public API for building a new object, so the starter writes these bytes itself.
 2. `parseDicom(bytes)` from `@cosyte/dicom` parses the file. `readMetadata` reads it through the typed
    views (`fileMeta`, `patient`, `study`, `series`, `image`), which leave a missing value `undefined`
    rather than substituting a default, and `Dictionary.uid` names the transfer syntax and SOP class.
@@ -125,7 +126,7 @@ Share one `uidMap` across every file of a study, so the replacement UIDs agree f
 map pairs each source UID with its replacement, which links the output back to the source: keep it
 private.
 
-The code is in [`src/part10.js`](src/part10.js), [`src/dicom.js`](src/dicom.js) and
+The code is in [`src/part10.js`](src/part10.js), [`src/dicom.js`](src/dicom.js), and
 [`src/main.js`](src/main.js).
 
 ## Limits
@@ -135,8 +136,8 @@ The code is in [`src/part10.js`](src/part10.js), [`src/dicom.js`](src/dicom.js) 
 - This is metadata-only de-identification: pixels are never inspected. The synthetic object has no Pixel
   Data. For an object whose Pixel Data is not marked `BurnedInAnnotation` `NO`,
   `burnedInAnnotationHazard` is `true`: do not release it before a pixel-capable review.
-- With `@cosyte/deid` 0.1.0, the De-identification Method text written to `(0012,0063)` is 113
-  characters, longer than the 64 an `LO` value allows, so `@cosyte/dicom` reports
+- On the 0.1 line of `@cosyte/deid`, the De-identification Method text written to `(0012,0063)` is
+  113 characters, longer than the 64 an `LO` value allows, so `@cosyte/dicom` reports
   `DICOM_DEIDENT_METHOD_VALUE_OVER_LENGTH`. A receiver that enforces the length may reject that
   attribute. The coded method in `(0012,0064)` names the same profile within the length limits.
 - The replacement UIDs are `2.25.` followed by 59 digits of a SHA-256 hash, while PS3.5 section B.2
@@ -154,4 +155,4 @@ real patient data, and the file is built at run time rather than committed.
 The `@cosyte/*` versions are set in [`package.json`](package.json). After changing one, run
 `npm install` to refresh `package-lock.json`, then `npm test`.
 
-Need it integrated? [Talk to us](https://cosyte.com/contact).
+Need it integrated? [Talk to us](https://cosyte.com/integration-services?utm_source=github&utm_medium=readme&utm_campaign=evergreen&utm_content=examples).
