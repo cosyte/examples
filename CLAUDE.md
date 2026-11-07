@@ -14,13 +14,15 @@ Run these from the repo root, in this order. There is nothing to install at the 
    `git ls-files -- '*/package.json' | awk -F/ 'NF == 2 { print $1 }'`
 3. Step 2 again on Node 22, the floor, for each starter the change touches:
    `mise exec node@22 -- npm ci`, then `mise exec node@22 -- npm test`.
+4. `actionlint`, when the change touches `.github/workflows/`.
 
 Step 1 is `no-emdash.yml`'s `no-emdash` check. On a pull request it also scans the title, the body
 and the commit messages (the script's `--stdin` mode), since a squash merge makes them the commit on
 `main`, and editing the title or body runs it again. Steps 2 and 3 are `starters.yml`: every starter
 on Node 22 and 24, and `All starters` is the one check that stands for the whole matrix, so a new
 starter folder is tested with no workflow edit. `starters.yml` also runs nightly on `main`, from the
-lockfiles.
+lockfiles. Step 4 is `actionlint.yml`; `codeql.yml` and `scorecard.yml` call the shared workflows.
+A new starter also adds its folder to `.github/dependabot.yml`.
 
 ## Hazard: a starter gets copied into production
 

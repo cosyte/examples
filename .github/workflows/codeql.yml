@@ -1,0 +1,28 @@
+name: CodeQL
+
+# Static analysis of the starters' JavaScript through the shared CodeQL workflow, called the way the
+# libraries call it, at one published reference pinned by its commit SHA.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, Monday 03:37 UTC. An odd minute: GitHub delays scheduled runs at the start of every hour.
+    - cron: "37 3 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  codeql:
+    permissions:
+      security-events: write # upload the SARIF to the Security tab
+      contents: read
+      actions: read
+    uses: cosyte/.github/.github/workflows/codeql.yml@6d0a8217760a8cf45f147376384962f031d92482 # workflows-2026-11-07-6d0a8217760a

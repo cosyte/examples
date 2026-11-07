@@ -1,0 +1,44 @@
+version: 2
+updates:
+  # Each starter is its own npm project with its own package-lock.json, so each folder is listed.
+  # A new starter adds its folder here. The group makes one weekly pull request across every
+  # starter, so the starters move to a new release together, and the cooldown waits a day after a
+  # release before proposing it.
+  - package-ecosystem: npm
+    directories:
+      - "/astm-lab-results"
+      - "/ccda-summary"
+      - "/cli-tour"
+      - "/deid-hl7"
+      - "/dicom-metadata"
+      - "/hl7-mllp-listener"
+      - "/hl7-to-fhir"
+      - "/ncpdp-claim"
+      - "/x12-eligibility"
+      - "/x12-remittance"
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 1
+    open-pull-requests-limit: 5
+    groups:
+      starters:
+        patterns: ["*"]
+    commit-message:
+      prefix: build
+      include: scope
+
+  # Keep the workflows' actions current, one grouped pull request a week.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 1
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
+      include: scope

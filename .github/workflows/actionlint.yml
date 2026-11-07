@@ -1,0 +1,33 @@
+name: actionlint
+
+# Lints every workflow file with actionlint (and shellcheck over their run scripts), as the shared CI
+# does for the libraries. `nofilter` reads every workflow on every run, not only the files a pull
+# request changed, and any finding fails the job.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: reviewdog/action-actionlint@7abf25e1607ec65838b73d0484ff31f8e9499d80 # v1.81.2
+        with:
+          reporter: local
+          filter_mode: nofilter
+          fail_level: any
