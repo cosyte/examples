@@ -55,7 +55,7 @@ Found in the residual list: 0
 ```
 
 The medical record number in `PID-3` is removed, and its assigning authority and type code stay. The
-name, phone and national identifier are removed too. The date of birth and the message and event
+name, phone, and national identifier are removed too. The date of birth and the message and event
 timestamps (`MSH-7`, `EVN-2`) keep only their year, and the address keeps only the Safe Harbor
 three-digit ZIP (`000` for a restricted prefix). The unexamined residuals are the positions no rule
 named, from the message control ID in `MSH-10` to the patient location in `PV1-3`: the policy passed
@@ -68,10 +68,10 @@ npm test
 ```
 
 The test runs `src/main.js` and checks the manifest rows for the medical record number, name, date
-of birth, phone, national identifier and the two timestamps. It then de-identifies the message again
-in process and checks that no identifier read from the input `PID` segment appears in the output
-message, the manifest or the residual list, and that each of the three dates keeps its year and
-nothing finer.
+of birth, phone, national identifier, and the two timestamps. It then de-identifies the message
+again in process and checks that no identifier read from the input `PID` segment appears in the
+output message, the manifest, or the residual list, and that each of the three dates keeps its year
+and nothing finer.
 
 ## How it works
 
@@ -80,7 +80,7 @@ nothing finer.
 2. `parseHL7` from `@cosyte/hl7` parses it. `@cosyte/deid` locates identifiers structurally in that
    model (PID-5 is the patient name because the standard says so), not by pattern matching the text.
 3. `deidentifyHl7(message)` from `@cosyte/deid/hl7` applies the built-in Safe Harbor policy and
-   returns a new message, the manifest and `unexaminedResiduals`: every value-bearing position the
+   returns a new message, the manifest, and `unexaminedResiduals`: every value-bearing position the
    pass handed through without a rule, counted by locus. The input message is never changed.
 4. The Safe Harbor policy needs no key. A surrogate computed from the medical record number would be
    derived from the patient's own identifier, which 45 CFR 164.514(c) does not allow as a
@@ -89,7 +89,7 @@ nothing finer.
    `profileOptions(LIMITED_DATA_SET_PROFILE, createDeidContext({ key, patientId }))`. That profile
    also shifts dates by a keyed per-patient offset, and it does not claim Safe Harbor.
 5. `src/main.js` ends with a check you can keep in your own pipeline: every identifier read from the
-   input is searched for in the output, the manifest and the residual list, and the process exits 1
+   input is searched for in the output, the manifest, and the residual list, and the process exits 1
    if one is found.
 
 The code is in [`src/deid.js`](src/deid.js) and [`src/main.js`](src/main.js).
@@ -106,12 +106,12 @@ The code is in [`src/deid.js`](src/deid.js) and [`src/main.js`](src/main.js).
 
 ## Synthetic data
 
-The message comes from `@cosyte/synth`, which draws every name, identifier, date, phone and address
-from reserved or fictional ranges. It is not real patient data.
+The message comes from `@cosyte/synth`, which draws every name, identifier, date, phone, and
+address from reserved or fictional ranges. It is not real patient data.
 
 ## Versions
 
 The `@cosyte/*` versions are set in [`package.json`](package.json). After changing one, run
 `npm install` to refresh `package-lock.json`, then `npm test`.
 
-Need it integrated? [Talk to us](https://cosyte.com/contact).
+Need it integrated? [Talk to us](https://cosyte.com/integration-services?utm_source=github&utm_medium=readme&utm_campaign=evergreen&utm_content=examples).

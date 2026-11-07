@@ -2,8 +2,9 @@
 
 Read the plan and coverage facts out of a synthetic X12 271 eligibility response with
 [`@cosyte/x12`](https://github.com/cosyte/x12): who answered, who is covered, the group number, the
-trace to match against your 270, and each benefit line with its service types, coverage level, amount
-and percent. Then build the 270 inquiry that the 271 answers, and match the two by their trace.
+trace to match against your 270, and each benefit line with its service types, coverage level,
+amount, and percent. Then build the 270 inquiry that the 271 answers, and match the two by their
+trace.
 
 Libraries: [`@cosyte/x12`](https://github.com/cosyte/x12),
 [`@cosyte/synth`](https://github.com/cosyte/synth).
@@ -103,13 +104,13 @@ npm test
 ```
 
 The test runs `src/main.js` and checks the payer, member ID, group number, trace, benefit lines,
-coverage status and 270 trace it prints against a fresh reading of the same 271. It then splits the
+coverage status, and 270 trace it prints against a fresh reading of the same 271. It then splits the
 271 into segments by hand, without the library, and checks each value the typed reader returned
-against the raw `NM1`, `REF`, `TRN` and `EB` segments. A third test builds a small 271 with
-co-payment, deductible and co-insurance lines through `build271` and checks their labels, and that
+against the raw `NM1`, `REF`, `TRN`, and `EB` segments. A third test builds a small 271 with
+co-payment, deductible, and co-insurance lines through `build271` and checks their labels, and that
 each amount and percent stays exactly as sent. A fourth reads the built 270 back with
-`get270Inquiry` and checks its envelope, header, parties, member, service type and trace against the
-271 and the raw segments. The last turns the synthetic 271 into a rejection, an `AAA` segment in
+`get270Inquiry` and checks its envelope, header, parties, member, service type, and trace against
+the 271 and the raw segments. The last turns the synthetic 271 into a rejection, an `AAA` segment in
 place of the benefit line, and checks that it reads as a rejection with its codes, not as a member
 with no benefits.
 
@@ -120,14 +121,14 @@ with no benefits.
 2. `parseX12` reads the interchange. The delimiters come from the ISA, and a tolerated deviation
    arrives on `warnings` with a stable code instead of an exception.
 3. `get271Eligibility(interchange.delimiters, transaction)` returns the typed 271: each subscriber
-   with its payer, provider, name, member ID, `REF`, `DTP` and `TRN` rows, and its `EB` benefit
+   with its payer, provider, name, member ID, `REF`, `DTP`, and `TRN` rows, and its `EB` benefit
    lines, plus `aaaConditions`, one for each `AAA` segment in which the payer says it could not
    process the inquiry. Amounts and percents are `X12Decimal`, never a float, and each service type
    code comes with its description from the snapshot the package bundles.
 4. `describeSubscriber` in `src/eligibility.js` turns that into the facts a front desk asks for. It
    labels the seven `EB-01` benefit types it knows (active coverage, inactive, co-insurance,
    co-payment, deductible, out of pocket, non-covered) and prints any other code as sent. Coverage
-   status comes from `EB-01` codes 1 to 8, cost sharing from `A`, `B`, `C` and `G`. Dates print
+   status comes from `EB-01` codes 1 to 8, cost sharing from `A`, `B`, `C`, and `G`. Dates print
    through `toISO`, which reads a `D8` day as `YYYY-MM-DD`.
 5. The `AAA` conditions tell a rejected inquiry from a member with no benefit lines, since both come
    back with no benefits. `describeRejection` prints each one with the payer's reject reason
@@ -144,32 +145,32 @@ The code is in [`src/eligibility.js`](src/eligibility.js) and [`src/main.js`](sr
 
 ## Limits
 
-- `@cosyte/synth` 0.1.0 writes no 270, so the starter builds the 270 from the parties, member and
-  trace of the synthetic 271, and the trace matches by construction. The 271 echoes `TRN-02` but no
-  `TRN-03`, so the match here is on `TRN-02` alone.
-- `@cosyte/x12` 0.1.0 bundles no descriptions for `AAA` codes (the package has no permission to
-  redistribute them), so a rejection prints its codes as sent, and each code also raises an
-  `X12_271_AAA_UNKNOWN_CODE` warning.
+- On the 0.1 line, `@cosyte/synth` writes no 270, so the starter builds the 270 from the parties,
+  member, and trace of the synthetic 271, and the trace matches by construction. The 271 echoes
+  `TRN-02` but no `TRN-03`, so the match here is on `TRN-02` alone.
+- On the 0.1 line, `@cosyte/x12` bundles no descriptions for `AAA` codes (the package has no
+  permission to redistribute them), so a rejection prints its codes as sent, and each code also
+  raises an `X12_271_AAA_UNKNOWN_CODE` warning.
 - The synthetic 271 carries one benefit line: active coverage with an amount and a percent. It has
-  no co-payment, co-insurance, deductible or out-of-pocket line, so the cost-sharing path runs only
-  in the test. With `@cosyte/synth` 0.1.0 its `EB-08` percent is a whole number (80, 90 or 100),
-  where the 271 guide defines a decimal fraction (0.8 for 80 percent): read it as a placeholder. It
-  also has no `BHT` segment after `ST`, which the 271 guide requires: `build271` in `@cosyte/x12`
-  0.1.0, which synth builds through, writes none, and `get271Eligibility` reads the 271 without a
-  warning. The 270 has one, because `build270` writes it.
-- The labels cover seven `EB-01` codes, two `DTP-01` qualifiers (`307`, `291`) and two `REF-01`
-  qualifiers (`6P`, `18`). Coverage level, network, time period and any other code print as sent.
+  no co-payment, co-insurance, deductible, or out-of-pocket line, so the cost-sharing path runs only
+  in the test. On the 0.1 line of `@cosyte/synth`, its `EB-08` percent is a whole number (80, 90, or
+  100), where the 271 guide defines a decimal fraction (0.8 for 80 percent): read it as a
+  placeholder. It also has no `BHT` segment after `ST`, which the 271 guide requires: `build271` in
+  `@cosyte/x12` on the 0.1 line, which synth builds through, writes none, and `get271Eligibility`
+  reads the 271 without a warning. The 270 has one, because `build270` writes it.
+- The labels cover seven `EB-01` codes, two `DTP-01` qualifiers (`307`, `291`), and two `REF-01`
+  qualifiers (`6P`, `18`). Coverage level, network, time period, and any other code print as sent.
   Dependents (Loop 2000D) are on `subscriber.dependents` and are not printed.
-- The output shows a subscriber name, member ID and date of birth because the data is synthetic. A
+- The output shows a subscriber name, member ID, and date of birth because the data is synthetic. A
   production service should not write PHI to its logs.
 
 ## Synthetic data
 
-The 271 comes from `@cosyte/synth`, which draws every name, member ID, date, NPI and address from
+The 271 comes from `@cosyte/synth`, which draws every name, member ID, date, NPI, and address from
 reserved or fictional ranges: the NPI fails its check digit on purpose and the ZIP is `00000`. It is
 not real patient data. The cost-sharing test builds its own 271 from fictional values only
 (`EXAMPLE PAYER`, `EXAMPLE CLINIC`, `ZZTEST`). The 270 reuses the synthetic 271's values; its
-control numbers, its `BHT-03` reference (`SYNTHREQ0001`) and its `TRN-03` originator (`9SYNTHETIC`)
+control numbers, its `BHT-03` reference (`SYNTHREQ0001`), and its `TRN-03` originator (`9SYNTHETIC`)
 are ours and fictional. The rejection test changes the synthetic 271 in memory; no fixture is
 committed.
 
@@ -178,4 +179,4 @@ committed.
 The `@cosyte/*` versions are set in [`package.json`](package.json). After changing one, run
 `npm install` to refresh `package-lock.json`, then `npm test`.
 
-Need it integrated? [Talk to us](https://cosyte.com/contact).
+Need it integrated? [Talk to us](https://cosyte.com/integration-services?utm_source=github&utm_medium=readme&utm_campaign=evergreen&utm_content=examples).

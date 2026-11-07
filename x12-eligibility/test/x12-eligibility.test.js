@@ -109,10 +109,10 @@ test("the typed reading agrees with the raw segments of the synthetic 271", () =
   });
 });
 
-test("co-payment, deductible and co-insurance lines are labelled and keep their amounts exactly", () => {
+test("co-payment, deductible, and co-insurance lines are labeled and keep their amounts exactly", () => {
   /** @param {string} text */
   const amount = (text) => X12Decimal.fromString(text) ?? assert.fail(`not a decimal: ${text}`);
-  // @cosyte/synth 0.1.0 writes no cost-sharing lines, so this test builds a small 271 through
+  // The @cosyte/synth 0.1 line writes no cost-sharing lines, so this test builds a small 271 through
   // @cosyte/x12's own build271. Every value in it is fictional.
   const built = build271({
     envelope: {
@@ -228,7 +228,8 @@ test("a rejected inquiry reads as a rejection, not as a member with no benefits"
   const [condition] = eligibility.aaaConditions;
   assert.ok(condition);
   assert.equal(describeRejection(condition), "subscriber (HL 3): reject reason 72, follow-up action C");
-  // @cosyte/x12 0.1.0 bundles no AAA code descriptions, so each code it reads also raises a warning.
+  // The @cosyte/x12 0.1 line bundles no AAA code descriptions, so each code it reads also raises a
+  // warning.
   assert.deepEqual(
     eligibility.warnings.map((warning) => warning.code),
     ["X12_271_AAA_UNKNOWN_CODE", "X12_271_AAA_UNKNOWN_CODE"],

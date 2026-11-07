@@ -1,7 +1,7 @@
 # ccda-summary
 
 Parse a C-CDA document with [`@cosyte/ccda`](https://github.com/cosyte/ccda) and print its document
-type, the patient, and the problems, medications and allergies, read through the library's typed
+type, the patient, and the problems, medications, and allergies, read through the library's typed
 section accessors.
 
 Libraries: [`@cosyte/ccda`](https://github.com/cosyte/ccda), [`@cosyte/synth`](https://github.com/cosyte/synth).
@@ -53,11 +53,11 @@ Observation, and the starter never fills in a value the document does not carry.
 npm test
 ```
 
-The test runs `src/main.js` and checks the document type, the patient line and one entry per problem,
-medication and allergy against a parse of the same document. It then checks the summary against the
-XML: one row per Problem Observation, Medication Activity and Allergy Observation, every reported code
-written in the document, every drug coded in RxNorm, and the medical record number taken from the
-patient's identifiers.
+The test runs `src/main.js` and checks the document type, the patient line, and one entry per
+problem, medication, and allergy against a parse of the same document. It then checks the summary
+against the XML: one row per Problem Observation, Medication Activity, and Allergy Observation,
+every reported code written in the document, every drug coded in RxNorm, and the medical record
+number taken from the patient's identifiers.
 
 ## How it works
 
@@ -72,32 +72,31 @@ patient's identifiers.
    (drug, dose, route, frequency, status), and `getAllergies()` for the Allergy Concern Acts (the
    allergen, each reaction and its severity).
 4. A C-CDA names each code system by OID. `@cosyte/ccda` exports the OIDs (`SNOMED_CT`, `RXNORM`,
-   `ICD10_CM` and others), and `src/ccda.js` maps them to the names we print.
+   `ICD10_CM`, and others), and `src/ccda.js` maps them to the names we print.
 
 The code is in [`src/ccda.js`](src/ccda.js) and [`src/main.js`](src/main.js).
 
 ## Limits
 
-- `@cosyte/synth` 0.1.0 writes active entries only, one allergy with one reaction, and no Severity or
-  Criticality observation. It draws each code from its example pools on its own, so the record is not
-  clinically coherent: read it as parser input, not as a patient.
+- On the 0.1 line, `@cosyte/synth` writes active entries only, one allergy with one reaction, and no
+  Severity or Criticality observation. It draws each code from its example pools on its own, so the
+  record is not clinically coherent: read it as parser input, not as a patient.
 - `@cosyte/ccda` checks that a code's system is one expected for its slot. It does not check that the
   code exists in that system; for that, pass your own terminology service as the `terminology` option
   of `parseCcda`.
-- With `@cosyte/ccda` 0.1.0, `npm install` prints a deprecation notice for `@xmldom/xmldom` 0.9.10,
-  the XML parser that release pins exactly, and `npm audit` reports advisories against it (one of
-  them high severity) with no fix available, because the pin is exact. This starter does not override
-  the pin.
+- `@cosyte/ccda` pins its XML parser, `@xmldom/xmldom`, to one exact version, so a fix to that
+  parser reaches this starter only through a new `@cosyte/ccda` release. This starter does not
+  override the pin.
 
 ## Synthetic data
 
-The document comes from `@cosyte/synth`, which draws every name, identifier and date from reserved or
-fictional ranges; the medical record number sits under a synthetic assigning-authority OID. It is not
-real patient data.
+The document comes from `@cosyte/synth`, which draws every name, identifier, and date from reserved
+or fictional ranges; the medical record number sits under a synthetic assigning-authority OID. It is
+not real patient data.
 
 ## Versions
 
 The `@cosyte/*` versions are set in [`package.json`](package.json). After changing one, run
 `npm install` to refresh `package-lock.json`, then `npm test`.
 
-Need it integrated? [Talk to us](https://cosyte.com/contact).
+Need it integrated? [Talk to us](https://cosyte.com/integration-services?utm_source=github&utm_medium=readme&utm_campaign=evergreen&utm_content=examples).
