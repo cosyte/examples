@@ -25,7 +25,7 @@ updates:
       starters:
         patterns: ["*"]
     commit-message:
-      prefix: build
+      prefix: chore
       include: scope
 
   # Keep the workflows' actions current, one grouped pull request a week.
@@ -39,6 +39,11 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+    # From v1.75.0 reviewdog/action-actionlint installs actionlint from a fork with `curl | bash`.
+    # actionlint.yml runs rhysd/actionlint's own release, checked by SHA-256, so this action is
+    # never proposed here.
+    ignore:
+      - dependency-name: "reviewdog/action-actionlint"
     commit-message:
-      prefix: ci
+      prefix: chore
       include: scope

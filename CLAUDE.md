@@ -13,7 +13,8 @@ since a squash merge makes them the commit on `main`, and editing the title or b
 Steps 2 and 3 are `starters.yml`: every starter on Node 22 and 24, and `All starters` is the one
 check that stands for the whole matrix, so a new starter folder is tested with no workflow edit.
 `starters.yml` also runs nightly on `main`, from the lockfiles. Step 4 is `actionlint.yml`;
-`codeql.yml` and `scorecard.yml` call the shared workflows. A new starter also adds its folder to
+`codeql.yml`, `scorecard.yml`, and `pr-title.yml` (the PR title in Conventional Commits) call the
+shared workflows at one published `workflows-*` reference. A new starter also adds its folder to
 `.github/dependabot.yml`.
 
 ## Hazard: a starter gets copied into production
