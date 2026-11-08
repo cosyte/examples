@@ -1,0 +1,42 @@
+name: CLAUDE.md card
+
+# Checks the CLAUDE.md card against the card spec (documentation/claude-card.md in cosyte/config:
+# Gate, Hazard and Rules, within its line, width and byte limits) and every pointer into agent notes.
+# Both checkers are commands of `@cosyte/script-utils`, run through npx at the exact version below,
+# so nothing here restates a rule they hold. Moving to a new version means changing SCRIPT_UTILS here
+# and in `no-emdash.yml` together.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  SCRIPT_UTILS: "@cosyte/script-utils@0.1.4"
+
+jobs:
+  claude-card:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+
+      - name: The card follows the spec
+        run: npx -y "$SCRIPT_UTILS" claude-card
+
+      - name: Every agent-notes pointer resolves
+        run: npx -y "$SCRIPT_UTILS" agent-notes

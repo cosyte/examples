@@ -20,7 +20,9 @@ npm test       # runs it again and asserts its key output, offline
 
 Run these from the repository root, in this order, before you push:
 
-1. `bash scripts/check-no-emdash.sh`
+1. The shared gates, at the version the workflows pin:
+   `npx -y @cosyte/script-utils@0.1.4 no-emdash`, then the same with `claude-card` and
+   `agent-notes` in place of `no-emdash`.
 2. In every starter, `npm ci`, then `npm test`. CI lists the starters this way:
    `git ls-files -- '*/package.json' | awk -F/ 'NF == 2 { print $1 }'`
 3. Step 2 again on Node 22, the floor, for each starter the change touches:
