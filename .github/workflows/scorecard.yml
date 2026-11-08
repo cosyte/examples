@@ -1,7 +1,7 @@
 name: Scorecard
 
 # OpenSSF Scorecard supply-chain analysis through the shared workflow, called the way the libraries
-# call it, at one published reference pinned by its commit SHA. It runs on main only: publishing the
+# call it, at the published reference every Cosyte repository uses. It runs on main only: publishing the
 # results needs the default branch.
 
 on:
@@ -20,4 +20,4 @@ jobs:
       contents: read # required to resolve the reusable workflow (else contents:none and a startup failure)
       security-events: write # upload the SARIF to the Security tab
       id-token: write # publish results to the OpenSSF API (for the badge)
-    uses: cosyte/.github/.github/workflows/scorecard.yml@6d0a8217760a8cf45f147376384962f031d92482 # workflows-2026-11-07-6d0a8217760a
+    uses: cosyte/.github/.github/workflows/scorecard.yml@workflows-2026-11-07-498c7c13c886

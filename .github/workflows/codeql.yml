@@ -1,7 +1,7 @@
 name: CodeQL
 
-# Static analysis through the shared CodeQL workflow, called the way the libraries call it, at one
-# published reference pinned by its commit SHA. Two languages: `javascript-typescript` for the
+# Static analysis through the shared CodeQL workflow, called the way the libraries call it, at the
+# published reference every Cosyte repository uses. Two languages: `javascript-typescript` for the
 # starters, and `actions` for the workflows under .github/workflows/, which run with this
 # repository's token.
 
@@ -27,6 +27,6 @@ jobs:
       security-events: write # upload the SARIF to the Security tab
       contents: read
       actions: read
-    uses: cosyte/.github/.github/workflows/codeql.yml@6d0a8217760a8cf45f147376384962f031d92482 # workflows-2026-11-07-6d0a8217760a
+    uses: cosyte/.github/.github/workflows/codeql.yml@workflows-2026-11-07-498c7c13c886
     with:
       languages: '["actions", "javascript-typescript"]'
