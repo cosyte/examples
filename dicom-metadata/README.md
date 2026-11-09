@@ -155,4 +155,4 @@ real patient data, and the file is built at run time rather than committed.
 The `@cosyte/*` versions are set in [`package.json`](package.json). After changing one, run
 `npm install` to refresh `package-lock.json`, then `npm test`.
 
-Need it integrated? [Talk to us](https://cosyte.com/integration-services?utm_source=github&utm_medium=readme&utm_campaign=evergreen&utm_content=examples).
+Need it built, or hosted and run for you? [Talk to us](https://cosyte.com/integration-services?utm_source=github&utm_medium=readme&utm_campaign=evergreen&utm_content=examples).
