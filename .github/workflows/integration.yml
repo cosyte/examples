@@ -52,7 +52,14 @@ jobs:
     outputs:
       starters: ${{ steps.list.outputs.starters }}
     steps:
+      # Always cosyte/examples: when a library's release calls this workflow, github.repository is
+      # the caller, and checking that out would test the library's folders, not the starters. Our
+      # own runs test their commit; a caller gets the default branch.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: cosyte/examples
+          ref: ${{ github.repository == 'cosyte/examples' && github.sha || '' }}
+          persist-credentials: false
 
       - name: List the starters to run
         id: list
@@ -99,7 +106,14 @@ jobs:
       run:
         working-directory: ${{ matrix.starter }}
     steps:
+      # Always cosyte/examples: when a library's release calls this workflow, github.repository is
+      # the caller, and checking that out would test the library's folders, not the starters. Our
+      # own runs test their commit; a caller gets the default branch.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: cosyte/examples
+          ref: ${{ github.repository == 'cosyte/examples' && github.sha || '' }}
+          persist-credentials: false
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
