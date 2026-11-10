@@ -74,6 +74,30 @@ subject is the Patient entry, and `@cosyte/fhir` reports no errors. It also chec
 from the message appears in the transform's diagnostics, and that without an identifier system the
 starter Patient profile flags `Patient.identifier.system`.
 
+## Integration tests
+
+`npm test` also runs the fast integration tests, `test/integration/*.fast.test.js`. `npm run test:full`
+runs every test, the seed sweeps in `test/integration/*.full.test.js` included, and fails unless the
+helpers in `test/integration/support.js` are fully covered. They call the libraries' public APIs only,
+on synthetic data.
+
+- Every HL7 v2 message kind `@cosyte/synth` generates (ADT^A01, ADT^A04, ADT^A08, ORU^R01,
+  ORM^O01, SIU^S12, VXU^V04) is converted by `@cosyte/transform`. Each resource validates in strict
+  mode with no error (the starter Patient profile on the Patient), the Patient carries `PID-3` and
+  `PID-5`, and no patient value reaches the transform's diagnostics.
+- `@cosyte/terminology` checks the codes: every `Quantity` coded in UCUM is valid UCUM, and every
+  coding system the transform writes resolves, except three HL7 v3 code systems its identity table
+  does not list (`KNOWN_UNRESOLVED_SYSTEMS` in `test/integration/support.js`). A unit that `OBX-6`
+  declares as UCUM reaches `Quantity.code`; one it does not declare is kept as `Quantity.unit` only,
+  with a `TRANSFORM_UNIT_NOT_UCUM` warning.
+- An ORU^R01 gives one Observation per `OBX`, and a DiagnosticReport only when `OBR-25` gives it a
+  status. The synthetic ORU leaves `OBR-25` empty, so the transform withholds the report and says so
+  with `TRANSFORM_RESOURCE_INVALID`.
+- `deidentifyFhir` from `@cosyte/deid` de-identifies each Bundle: no PID value is left in it, in the
+  manifest, or in the residual list, nothing is blocked, a ZIP code keeps at most three digits, the
+  Bundle reads back with `@cosyte/fhir` with no new issue, and the clinical codes are unchanged.
+- The full suite runs the same checks over 250 seeds of every kind.
+
 ## How it works
 
 1. `generateAdt({ seed: 12345, trigger: "A01" })` from `@cosyte/synth/hl7` builds the admit message,

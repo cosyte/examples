@@ -59,6 +59,25 @@ against the XML: one row per Problem Observation, Medication Activity, and Aller
 every reported code written in the document, every drug coded in RxNorm, and the medical record
 number taken from the patient's identifiers.
 
+## Integration tests
+
+`npm test` also runs the fast integration tests, `test/integration/*.fast.test.js`. `npm run test:full`
+runs every test, the seed sweeps in `test/integration/*.full.test.js` included, and fails unless the
+helpers in `test/integration/support.js` are fully covered. They call the libraries' public APIs only,
+on synthetic data.
+
+- Synthetic Continuity of Care Documents and Referral Notes from `@cosyte/synth` parse with no
+  warning, serialize back to the same XML, and give the same summary.
+- `@cosyte/terminology` resolves every `codeSystem` OID they name, except four HL7 v3 code systems
+  and the NCI Thesaurus, which its identity table does not list (`KNOWN_UNRESOLVED_OIDS` in
+  `test/integration/support.js`).
+- `deidentifyCcda` from `@cosyte/deid` de-identifies each document. The output parses as the same
+  document type with the same problem, medication, and allergy codes; the MRN, the name, and the
+  birth date are gone from it, the manifest, and the residual list; the birth time keeps its year.
+  The pass blocks the section narratives, which breaks the entries' references into them, so
+  `NARRATIVE_REFERENCE_BROKEN` is the one new warning the output may read back with.
+- The full suite runs the same checks over 150 seeds of each document type.
+
 ## How it works
 
 1. `generateCcd({ seed: 198 })` from `@cosyte/synth/ccda` builds a CCD through `@cosyte/ccda`'s own

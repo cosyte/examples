@@ -73,6 +73,21 @@ again in process and checks that no identifier read from the input `PID` segment
 output message, the manifest, or the residual list, and that each of the three dates keeps its year
 and nothing finer.
 
+## Integration tests
+
+`npm test` also runs the fast integration tests, `test/integration/*.fast.test.js`. `npm run test:full`
+runs every test, the seed sweeps in `test/integration/*.full.test.js` included, and fails unless the
+helpers in `test/integration/support.js` are fully covered. They call the libraries' public APIs only,
+on synthetic data.
+
+- Every HL7 v2 message kind `@cosyte/synth` generates (ADT^A01, ADT^A04, ADT^A08, ORU^R01,
+  ORM^O01, SIU^S12, VXU^V04) is de-identified under the Safe Harbor policy. The output parses back
+  to itself with the same segments and the same `MSH-10`, and no PID identifier or order number
+  (`ORC-2`, `ORC-3`, `OBR-2`, `OBR-3`) is left in it, in the manifest, or in the residual list.
+- The policy blocks the placer and filler order numbers. Each blocked field is empty in the output.
+- `MSH-7` and `PID-7` keep only their year.
+- The full suite runs the same checks over 250 seeds of every kind.
+
 ## How it works
 
 1. `generateAdt({ seed: 12345, trigger: "A01" })` from `@cosyte/synth/hl7` builds the admit message

@@ -10,10 +10,14 @@
   },
   "scripts": {
     "start": "node src/main.js",
-    "test": "node --test"
+    "test": "node --test test/*.test.js test/integration/*.fast.test.js",
+    "test:full": "node --test --experimental-test-coverage --test-coverage-include=test/integration/support.js --test-coverage-exclude=node_modules/** --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 test/*.test.js test/integration/*.test.js"
   },
   "dependencies": {
     "@cosyte/synth": "^0.1.0",
     "@cosyte/x12": "^0.1.0"
+  },
+  "devDependencies": {
+    "@cosyte/deid": "^0.1.0"
   }
 }

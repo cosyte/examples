@@ -67,6 +67,19 @@ twin from `@cosyte/synth` parse to the same results, that each row carries the v
 flag, and status its result record sent, and that a frame whose checksum fails is dropped before the
 record parser, leaving a frame warning and one result fewer.
 
+## Integration tests
+
+`npm test` also runs the fast integration tests, `test/integration/*.fast.test.js`. `npm run test:full`
+runs every test, the seed sweeps in `test/integration/*.full.test.js` included, and fails unless the
+helpers in `test/integration/support.js` are fully covered. They call the libraries' public APIs only,
+on synthetic data.
+
+- A framed synthetic result upload decodes with no frame or record warning as one result message,
+  re-frames byte for byte, carries the same records as the unframed upload for the same seed, and
+  reads back to the same results table.
+- A synthetic order download round-trips as record text and classifies as orders.
+- The full suite runs the same checks over 100 seeds, with one to eight results each.
+
 ## How it works
 
 1. `generateAstmResultFramed({ seed: 1033, resultCount: 4 })` from `@cosyte/synth/astm` builds the

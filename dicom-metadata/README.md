@@ -104,6 +104,24 @@ recorded in the shared UID map, and that the manifest names the category of the 
 and birth date. Last, it checks that the pass records itself as text and as a code, marks the dates
 removed, and writes the data set in ascending tag order.
 
+## Integration tests
+
+`npm test` also runs the fast integration tests, `test/integration/*.fast.test.js`. `npm run test:full`
+runs every test, the seed sweeps in `test/integration/*.full.test.js` included, and fails unless the
+helpers in `test/integration/support.js` are fully covered. They call the libraries' public APIs only,
+on synthetic data.
+
+- The synthetic header round-trips through `@cosyte/dicom` byte for byte with the same metadata.
+  `@cosyte/synth` has no DICOM generator, so this is the starter's one hand-written header.
+- De-identified, it round-trips too, keeps no identifying value in the bytes or the manifest, and
+  gets new, well-formed UIDs of at most 64 characters. The remapping is derived from the original
+  UIDs, so every pass gives the same UIDs, with the same map or a new one.
+- One test is marked todo: `@cosyte/deid` writes De-identification Method `(0012,0063)` as one Value
+  longer than the 64 characters an `LO` allows, and `@cosyte/dicom` reports
+  `DICOM_DEIDENT_METHOD_VALUE_OVER_LENGTH`. It passes once the library writes a conformant value.
+- The full suite repeats the pass ten times on each of 20 maps and checks every pass gives the same
+  UIDs.
+
 ## How it works
 
 1. `syntheticCtHeader()` in `src/part10.js` writes a small Part 10 file: the 128-byte preamble,

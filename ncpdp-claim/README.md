@@ -75,6 +75,21 @@ and that its total paid equals ingredient cost plus dispensing fee minus patient
 that a rejected response reads as rejected with every reject code in wire order, even when its
 status field says paid.
 
+## Integration tests
+
+`npm test` also runs the fast integration tests, `test/integration/*.fast.test.js`. `npm run test:full`
+runs every test, the seed sweeps in `test/integration/*.full.test.js` included, and fails unless the
+helpers in `test/integration/support.js` are fully covered. They call the libraries' public APIs only,
+on synthetic data.
+
+- Synthetic B1, B2 and B3 requests from `@cosyte/synth`, and the starter's B1 with its Pricing
+  segment, parse with no warning and serialize back to the same text.
+- `deidentifyTelecom` from `@cosyte/deid` de-identifies each one. The output parses and round-trips
+  with the same segments; no patient field (`C4`, `CA`, `CB`, `CM`, `CQ`, `CY`) or cardholder ID
+  (`C2`) value is left in any field, the manifest, or the residual list; the birth date keeps its
+  year.
+- The full suite runs the same checks over 250 seeds of each request.
+
 ## How it works
 
 1. `generateB1({ seed: 1 })` from `@cosyte/synth/ncpdp` builds a B1 claim through `@cosyte/ncpdp`'s

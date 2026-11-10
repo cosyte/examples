@@ -15,7 +15,14 @@ editing the title or body runs it again. That job is never required: a Dependabo
 upstream release notes, dashes and all.
 Steps 2 and 3 are `starters.yml`: every starter on Node 22 and 24, and `All starters` is the one
 check that stands for the whole matrix, so a new starter folder is tested with no workflow edit.
-`starters.yml` also runs nightly on `main`, from the lockfiles. Step 4 is `actionlint.yml`;
+`starters.yml` also runs nightly on `main`, from the lockfiles. Since `npm test` includes each
+starter's fast integration tests, `All starters` is the fast slice's check. `integration.yml` runs
+the full suite (`npm run test:full`, every starter on Node 22 and 24, one `Integration (full)`
+check) nightly on `main`, on a pull request that changes an integration test, and through
+`workflow_call`:
+given `package` and `artifact`, each starter that locks that package installs the artifact's tarball
+in its place and checks every copy in the tree before the suite runs. `integration-self-test.yml`
+proves that override with a marked tarball the registry does not have. Step 4 is `actionlint.yml`;
 `codeql.yml`, `scorecard.yml`, and `pr-title.yml` (the PR title in Conventional Commits) call the
 shared workflows at one published `workflows-*` reference. A new starter also adds its folder to
 `.github/dependabot.yml`.
