@@ -114,6 +114,18 @@ the 271 and the raw segments. The last turns the synthetic 271 into a rejection,
 place of the benefit line, and checks that it reads as a rejection with its codes, not as a member
 with no benefits.
 
+## Integration tests
+
+`npm test` also runs the fast integration tests, `test/integration/*.fast.test.js`. `npm run test:full`
+runs every test, the seed sweeps in `test/integration/*.full.test.js` included, and fails unless the
+helpers in `test/integration/support.js` are fully covered. They call the libraries' public APIs only,
+on synthetic data.
+
+- For each seed, the synthetic 271 and the 270 the starter builds for it both parse with no warning
+  and serialize back to the same text, the typed readers raise no warning, and the 270 asks about
+  the member and the trace the 271 answers.
+- The full suite runs the same checks over 300 seeds.
+
 ## How it works
 
 1. `generate271({ seed: 42 })` from `@cosyte/synth/x12` builds the response through `@cosyte/x12`'s

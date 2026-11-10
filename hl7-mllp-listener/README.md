@@ -81,6 +81,21 @@ The test opens real sockets, always on port 0. `InMemoryTransport` from `@cosyte
 drives a `Connection` or a `FrameReader` with no socket at all, but an `MllpServer` accepts only real
 connections, and the auto-ACK path lives in the server.
 
+## Integration tests
+
+`npm test` also runs the fast integration tests, `test/integration/*.fast.test.js`. `npm run test:full`
+runs every test, the seed sweeps in `test/integration/*.full.test.js` included, and fails unless the
+helpers in `test/integration/support.js` are fully covered. They call the libraries' public APIs only,
+on synthetic data.
+
+- Every HL7 v2 message kind `@cosyte/synth` generates (ADT^A01, ADT^A04, ADT^A08, ORU^R01,
+  ORM^O01, SIU^S12, VXU^V04) crosses a real MLLP link on `127.0.0.1`: the listener receives the
+  bytes that were sent, `@cosyte/hl7` parses them back to the same text, and each ACK is AA with
+  MSA-2 equal to the MSH-10 sent.
+- The starter's own listener reads each ADT trigger into the same summary as the parsed input.
+- The full suite sends 150 seeds of every kind over one link, then 200 messages from four senders at
+  once, and checks that every message arrives once, unchanged, and that each sender gets its own ACKs.
+
 ## How it works
 
 1. `generateAdt({ seed, trigger: "A01" })` from `@cosyte/synth/hl7` builds each admit message. The

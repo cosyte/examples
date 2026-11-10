@@ -1,0 +1,67 @@
+name: Integration self-test
+
+# Proves that integration.yml, called as a release gate, runs the suite against the tarball it is
+# given and not the registry version. It packs a copy of the @cosyte/hl7 the starters lock, marked with
+# a version that is not on the registry, uploads it as an artifact, and calls integration.yml with it.
+# The gate's install step fails unless every copy of @cosyte/hl7 in each starter's tree is that marked
+# version, resolved from the file, so a green gate here means the override installed the tarball.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/integration.yml"
+      - ".github/workflows/integration-self-test.yml"
+  schedule:
+    # Weekly, Mondays 07:23 UTC.
+    - cron: "23 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pack:
+    name: Pack a marked @cosyte/hl7 tarball
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+
+      - name: Pack the locked @cosyte/hl7 under a version the registry does not have
+        run: |
+          set -euo pipefail
+          locked="$(jq -r '.packages["node_modules/@cosyte/hl7"].version' hl7-to-fhir/package-lock.json)"
+          marker="$locked-selftest.$GITHUB_RUN_ID.$GITHUB_RUN_ATTEMPT"
+          published="$(npm view "@cosyte/hl7@$marker" version 2> /dev/null || true)"
+          if [ -n "$published" ]; then
+            echo "::error::@cosyte/hl7 $marker is on the registry; the marker must not be."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/pack/out"
+          cd "$RUNNER_TEMP/pack"
+          npm pack "@cosyte/hl7@$locked"
+          tar -xzf "cosyte-hl7-$locked.tgz"
+          jq --arg v "$marker" '.version = $v' package/package.json > package.json.new
+          mv package.json.new package/package.json
+          tar -czf "out/cosyte-hl7-$marker.tgz" package
+          echo "Packed @cosyte/hl7 $marker from the registry's $locked."
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: self-test-hl7-tarball
+          path: ${{ runner.temp }}/pack/out/*.tgz
+          if-no-files-found: error
+          retention-days: 1
+
+  gate:
+    name: Gate
+    needs: pack
+    uses: ./.github/workflows/integration.yml
+    with:
+      package: "@cosyte/hl7"
+      artifact: self-test-hl7-tarball

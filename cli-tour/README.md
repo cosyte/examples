@@ -152,6 +152,30 @@ the blocked locus named on stderr without its value. It also checks that no iden
 reaches the `inspect` summaries or the notes on stderr. Expected values come from the synthetic
 input, not from pasted output.
 
+## Integration tests
+
+`npm test` also runs the fast integration tests, `test/integration/*.fast.test.js`. `npm run test:full`
+runs every test, the seed sweeps in `test/integration/*.full.test.js` included, and fails unless the
+helpers in `test/integration/support.js` are fully covered. They call the libraries' public APIs only,
+on synthetic data.
+
+- `cosyte convert` turns a synthetic ADT^A01 into a Bundle, and the Bundle is piped into
+  `cosyte validate -` and `cosyte redact -`, each a child process: it is valid, the redacted Bundle
+  parses with `@cosyte/fhir` and carries no PID value, and no stream carries one.
+- For HL7 v2, X12 835, 837P and 271, C-CDA, ASTM, FHIR, and NCPDP SCRIPT (with `--format ncpdp`,
+  since the CLI does not detect it), `cosyte validate` exits 0 and `cosyte fmt` writes the input back
+  unchanged.
+- `cosyte redact` exits 1 and writes nothing for an ORU^R01, an 835, an 837P, and a C-CDA document,
+  where the policy blocks a locus, and names no value on stderr. On ASTM, which `@cosyte/deid` does
+  not cover, it exits 69.
+- `cosyte map-codes` translates a local code to LOINC through a hand-written ConceptMap, and exits 1
+  with `TERM_TRANSLATE_UNMAPPED` on a code the map does not carry.
+- One test is marked todo: the CLI reads NCPDP as SCRIPT only, so a Telecom claim does not validate.
+- The full suite pipes `convert`, `validate -` and `redact -` over 12 seeds of each HL7 v2 kind. On
+  the synthetic ORU^R01 and SIU^S12, `convert` exits 1 because the transform withholds a resource
+  it cannot emit valid, and writes the Bundle all the same. It also runs `validate` and `fmt` over 12
+  seeds of every format.
+
 ## How it works
 
 1. `src/make-fixtures.js` calls `generateAdt({ seed: 12345, trigger: "A01" })` from

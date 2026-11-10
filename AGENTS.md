@@ -13,8 +13,14 @@ Use Node.js 22 or later and npm. There is no build step, and nothing to install 
 cd deid-hl7    # any starter
 npm ci
 npm start      # runs the starter
-npm test       # runs it again and asserts its key output, offline
+npm test       # runs it again and asserts its key output, offline, with the fast integration tests
+npm run test:full  # every test, the integration seed sweeps included, helpers held to 100% coverage
 ```
+
+A starter's integration tests live in `test/integration/`, tagged by file name: `*.fast.test.js` run
+in `npm test`, `*.full.test.js` only in `npm run test:full`. They call the libraries' public APIs only.
+A defect a test finds in a library is reported upstream and marked with a `todo` that names it, never
+worked around in the test.
 
 ## The gate
 
@@ -23,7 +29,8 @@ Run these from the repository root, in this order, before you push:
 1. The shared gates, at the version the workflows pin:
    `npx -y @cosyte/script-utils@0.1.4 no-emdash`, then the same with `claude-card` in place of
    `no-emdash`.
-2. In every starter, `npm ci`, then `npm test`. CI lists the starters this way:
+2. In every starter, `npm ci`, then `npm test`, and `npm run test:full` in each starter the change
+   touches. CI lists the starters this way:
    `git ls-files -- '*/package.json' | awk -F/ 'NF == 2 { print $1 }'`
 3. Step 2 again on Node 22, the floor, for each starter the change touches:
    `mise exec node@22 -- npm ci`, then `mise exec node@22 -- npm test`.

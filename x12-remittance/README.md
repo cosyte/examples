@@ -93,6 +93,23 @@ report the payment out of balance, and `get835` must warn `X12_835_REMIT_BALANCE
 10.00 provider-level take-back (`PLB`) and lowering `BPR-02` to match must still balance, which pins
 the sign: a positive `PLB` amount reduces the payment.
 
+## Integration tests
+
+`npm test` also runs the fast integration tests, `test/integration/*.fast.test.js`. `npm run test:full`
+runs every test, the seed sweeps in `test/integration/*.full.test.js` included, and fails unless the
+helpers in `test/integration/support.js` are fully covered. They call the libraries' public APIs only,
+on synthetic data.
+
+- Synthetic 835, 837P, 837I and 837D interchanges from `@cosyte/synth` parse with no warning and
+  serialize back to the same text.
+- `deidentifyX12` from `@cosyte/deid` de-identifies each one. The output parses and round-trips with
+  the same segments; the patient's and the subscriber's names and member IDs (`NM1` IL and QC), every
+  street line and city, the patient control number, and a Social Security number are gone from it,
+  the manifest, and the residual list; a ZIP code keeps at most three digits. A provider's or a
+  payer's name is kept by design.
+- A de-identified 835 still reads as the same payment and the same claims, with the same warnings.
+- The full suite runs the same checks over 250 seeds of each transaction set.
+
 ## How it works
 
 1. `generate835({ seed: 42 })` from `@cosyte/synth/x12` builds the remittance through `@cosyte/x12`'s

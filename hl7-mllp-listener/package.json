@@ -12,7 +12,8 @@
     "start": "node src/main.js",
     "server": "node src/server.js",
     "send": "node src/client.js",
-    "test": "node --test"
+    "test": "node --test test/*.test.js test/integration/*.fast.test.js",
+    "test:full": "node --test --experimental-test-coverage --test-coverage-include=test/integration/support.js --test-coverage-exclude=node_modules/** --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 test/*.test.js test/integration/*.test.js"
   },
   "dependencies": {
     "@cosyte/hl7": "^0.1.0",
