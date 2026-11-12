@@ -14,7 +14,7 @@ import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { expectedOutput, fenceFor, listStarters, run, starterFiles } from "./docs-content.mjs";
+import { expectedOutput, fenceFor, listStarters, readIfPresent, run, starterFiles } from "./docs-content.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -190,6 +190,15 @@ test("the expected output is the first fenced block of its section, and nothing 
   assert.equal(expectedOutput("## Expected output\n\nNo block.\n\n## Test\n\n```text\nlater\n```\n"), null);
   assert.equal(expectedOutput("## Other\n\n```text\nx\n```\n"), null);
   assert.equal(expectedOutput("## Expected output\n\n```text\nnever closed\n"), null);
+});
+
+test("a missing file reads as null, and any other read error is thrown", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "docs-content-test-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  writeFileSync(join(root, "a.md"), "text\n");
+  assert.equal(readIfPresent(join(root, "a.md")), "text\n");
+  assert.equal(readIfPresent(join(root, "missing.md")), null);
+  assert.throws(() => readIfPresent(root), { code: "EISDIR" });
 });
 
 test("a fence is longer than any backtick run it holds", () => {

@@ -12,11 +12,11 @@
 // failed, were skipped and are marked todo, read from the summary node's test runner prints last.
 // performance.md says the starters are not measured, and why.
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { listStarters } from "./docs-content.mjs";
+import { listStarters, readIfPresent } from "./docs-content.mjs";
 
 /** The heading of the section each quality page's numbers go in. */
 export const HEADING = "## Current numbers";
@@ -135,10 +135,7 @@ function main(argv) {
   }
   const starters = listStarters(root);
   const logs = new Map(
-    starters.map((name) => {
-      const path = join(args.logs, `${name}.log`);
-      return [name, existsSync(path) ? readFileSync(path, "utf8") : null];
-    }),
+    starters.map((name) => [name, readIfPresent(join(args.logs, `${name}.log`))]),
   );
   const date = new Date().toISOString().slice(0, 10);
   const run = { starters, logs, commit: args.commit, node: args.node, runner: args.runner, date };

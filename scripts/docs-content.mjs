@@ -27,7 +27,7 @@
 // Zero dependencies, like the starters' own code: Node 22 or later, and git.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -48,6 +48,22 @@ const LANGUAGES = { ".js": "js", ".mjs": "js", ".json": "json", ".sh": "bash", "
 
 /** Where a starter lives on GitHub, for the link under its Files heading. */
 const TREE = "https://github.com/cosyte/examples/tree/main";
+
+/**
+ * A file's text, or null when there is no such file. Read once, with no check before it, so nothing
+ * can change the file between a check and the read.
+ *
+ * @param {string} path The file.
+ * @returns {string | null} Its text, or null.
+ */
+export function readIfPresent(path) {
+  try {
+    return readFileSync(path, "utf8");
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return null;
+    throw error;
+  }
+}
 
 /**
  * The starters: each top-level folder with a tracked package.json, sorted.
@@ -202,7 +218,10 @@ export function run({ root, check }) {
   const problems = [];
   const written = [];
   const docs = join(root, "docs-content");
-  if (!existsSync(docs)) {
+  let entries;
+  try {
+    entries = readdirSync(docs);
+  } catch {
     return { code: 2, problems: ["there is no docs-content/ folder"], written };
   }
   let starters;
@@ -217,7 +236,8 @@ export function run({ root, check }) {
   for (const name of starters) {
     const id = `starter-${name}`;
     const page = join(docs, `${id}.md`);
-    if (!existsSync(page)) {
+    const text = readIfPresent(page);
+    if (text === null) {
       problems.push(
         `${name} has no page: write docs-content/${id}.md with the headings ` +
           `${WRITTEN_HEADINGS.join(", ")}, then ${GENERATED_FROM} (the rest is generated), ` +
@@ -226,7 +246,6 @@ export function run({ root, check }) {
       continue;
     }
     pages.push(id);
-    const text = readFileSync(page, "utf8");
     const lines = text.split("\n");
     const cut = lines.indexOf(GENERATED_FROM);
     if (cut === -1) {
@@ -239,8 +258,8 @@ export function run({ root, check }) {
         problems.push(`docs-content/${id}.md has no '${heading}' heading before '${GENERATED_FROM}'`);
       }
     }
-    const readmePath = join(root, name, "README.md");
-    const output = existsSync(readmePath) ? expectedOutput(readFileSync(readmePath, "utf8")) : null;
+    const readme = readIfPresent(join(root, name, "README.md"));
+    const output = readme === null ? null : expectedOutput(readme);
     if (output === null) {
       problems.push(`${name}/README.md has no '${GENERATED_FROM}' section holding a fenced block`);
       continue;
@@ -257,26 +276,25 @@ export function run({ root, check }) {
     }
   }
 
-  for (const file of readdirSync(docs)) {
+  for (const file of entries) {
     const match = /^starter-(.+)\.md$/.exec(file);
     if (match !== null && !starters.includes(match[1])) {
       problems.push(`docs-content/${file} has no starter: there is no tracked ${match[1]}/package.json`);
     }
   }
 
-  const sidebarPath = join(docs, "sidebars.json");
+  const sidebar = readIfPresent(join(docs, "sidebars.json"));
   let listed = new Set();
-  if (existsSync(sidebarPath)) {
+  if (sidebar !== null) {
     try {
-      listed = new Set(sidebarIds(JSON.parse(readFileSync(sidebarPath, "utf8")).docs ?? []));
+      listed = new Set(sidebarIds(JSON.parse(sidebar).docs ?? []));
     } catch {
       problems.push("docs-content/sidebars.json is not JSON");
     }
   } else {
     problems.push("there is no docs-content/sidebars.json");
   }
-  const introPath = join(docs, "intro.md");
-  const intro = existsSync(introPath) ? readFileSync(introPath, "utf8") : null;
+  const intro = readIfPresent(join(docs, "intro.md"));
   if (intro === null) problems.push("there is no docs-content/intro.md, the overview");
   for (const id of pages) {
     if (!listed.has(id)) problems.push(`docs-content/sidebars.json does not list ${id}`);
