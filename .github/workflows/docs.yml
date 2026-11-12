@@ -1,0 +1,65 @@
+name: Docs
+
+# The pages docs.cosyte.com renders for this repository live in docs-content/, and a tag releases
+# them (release.yml). This workflow keeps them true on every pull request and push to main:
+#
+#   1. scripts/docs-content.mjs --check: every starter has its page, each page's expected output and
+#      files match the starter, and each page is in the sidebar and linked from the overview;
+#   2. the tests of the scripts under scripts/, with node's own test runner;
+#   3. the docs-content structure check from @cosyte/script-utils, at an exact version: the
+#      sidebar's shape, every page's front matter, the required pages, and the quality pages'
+#      "Current numbers" placeholders;
+#   4. the release's two archives, built as release.yml builds them, and listed. Nothing is published.
+#
+# The structure check arrived in @cosyte/script-utils 0.1.9, after the 0.1.4 that no-emdash.yml and
+# claude-card.yml pin, so SCRIPT_UTILS here is pinned on its own, at the version the Terraform modules
+# use; release.yml holds the same pin. Move the two together.
+#
+# There is no paths filter, so the `docs` check reports on every pull request and can be required.
+# The job id is the check name GitHub reports: rename it only together with the ruleset.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  SCRIPT_UTILS: "@cosyte/script-utils@0.1.12"
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+
+      - name: Every starter has its page, and every page matches its starter
+        run: node scripts/docs-content.mjs --check
+
+      - name: The scripts' tests
+        run: node --test scripts/*.test.mjs
+
+      - name: docs-content structure check
+        run: npx --yes --package="$SCRIPT_UTILS" -- cosyte-docs-content
+
+      - name: The release's two archives, built and listed
+        run: |
+          set -euo pipefail
+          scripts/pack-docs.sh "${RUNNER_TEMP}/dist-artifacts"
+          tar -tzf "${RUNNER_TEMP}/dist-artifacts/docs-content.tar.gz"
+          tar -tzf "${RUNNER_TEMP}/dist-artifacts/source.tar.gz"

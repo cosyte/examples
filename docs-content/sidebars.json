@@ -1,0 +1,38 @@
+{
+  "docs": [
+    "intro",
+    { "type": "category", "label": "Installation", "items": ["installation"] },
+    { "type": "category", "label": "Quickstart", "items": ["quickstart"] },
+    {
+      "type": "category",
+      "label": "How-to guides",
+      "items": ["start-a-project-from-a-starter", "update-the-libraries", "run-the-full-tests"]
+    },
+    { "type": "category", "label": "Explanation", "items": ["how-the-starters-are-built"] },
+    {
+      "type": "category",
+      "label": "Reference",
+      "items": [
+        {
+          "type": "category",
+          "label": "Starters",
+          "items": [
+            "starter-hl7-mllp-listener",
+            "starter-hl7-to-fhir",
+            "starter-deid-hl7",
+            "starter-cli-tour",
+            "starter-x12-eligibility",
+            "starter-x12-remittance",
+            "starter-ncpdp-claim",
+            "starter-astm-lab-results",
+            "starter-ccda-summary",
+            "starter-dicom-metadata"
+          ]
+        }
+      ]
+    },
+    { "type": "category", "label": "Troubleshooting", "items": ["troubleshooting"] },
+    "testing-and-quality",
+    "performance"
+  ]
+}

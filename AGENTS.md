@@ -5,6 +5,15 @@ tracked `package.json` is one starter and its own npm project: a committed `pack
 `src/`, `test/`, and a README. The repository ships no package: no root `package.json`, no
 changeset, and no `CHANGELOG.md`.
 
+`docs-content/` holds the pages docs.cosyte.com renders, after the docs-content standard in
+cosyte/config: the overview (`intro.md`), the fixed pages, the guides, and one page per starter,
+`starter-<name>.md`. A starter page is written by hand down to its `## Expected output` heading;
+from there to the end, its expected output (from the starter's README) and its files are generated
+by `node scripts/docs-content.mjs`. A new starter is a new page, listed in `sidebars.json` and linked
+from `intro.md`; a changed starter is a regenerated page, committed with it. A tag `vX.Y.Z` on `main`
+releases the pages (`.github/workflows/release.yml`). `scripts/` holds those scripts and their tests,
+with no `package.json`, so it is never read as a starter.
+
 ## Build and test
 
 Use Node.js 22 or later and npm. There is no build step, and nothing to install at the root.
@@ -35,6 +44,9 @@ Run these from the repository root, in this order, before you push:
 3. Step 2 again on Node 22, the floor, for each starter the change touches:
    `mise exec node@22 -- npm ci`, then `mise exec node@22 -- npm test`.
 4. `actionlint`, when the change touches `.github/workflows/`.
+5. When the change touches a starter, `docs-content/` or `scripts/`: `node scripts/docs-content.mjs`
+   (it rewrites the generated parts of the starter pages; commit what it wrote), then
+   `node scripts/docs-content.mjs --check` and `node --test scripts/*.test.mjs`.
 
 CI runs every starter on Node 22 and 24.
 
