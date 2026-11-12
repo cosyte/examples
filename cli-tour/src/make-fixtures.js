@@ -46,9 +46,12 @@ export function writeFixtures(dir) {
   return { adt };
 }
 
-// Run as a script (not imported): write the files and show what went into them.
+// Run as a script (not imported): write the files and say what went into them. It prints segment
+// names and a length, never the message: synthetic or not, a message holds a patient's values.
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { adt } = writeFixtures(process.argv[2] ?? "out");
+  const wire = syntheticAdmit(SEED);
+  const segmentNames = wire.split("\r").filter(Boolean).map((segment) => segment.slice(0, 3));
   console.log(`Wrote ${adt}, a synthetic ADT^A01 from @cosyte/synth (seed ${SEED}):`);
-  for (const segment of syntheticAdmit(SEED).split("\r").filter(Boolean)) console.log(`  ${segment}`);
+  console.log(`  ${wire.length} characters, segments ${segmentNames.join(" ")}`);
 }

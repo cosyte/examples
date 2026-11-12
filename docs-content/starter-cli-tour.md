@@ -3,13 +3,16 @@ id: starter-cli-tour
 title: Tour the cosyte command line
 sidebar_label: cli-tour
 description: "The cosyte command over a synthetic HL7 v2 message: parse, inspect, validate, convert to a FHIR R4 Bundle and de-identify, each step with its exit code."
+held_by: cli-tour/test/cli-tour.test.js
 ---
 
 # Tour the cosyte command line
 
 The `cli-tour` starter walks the `cosyte` command from `@cosyte/cli` over a synthetic HL7 v2 admit
 message: parse it to typed JSON, summarize it, validate it, convert it to a FHIR R4 Bundle, and
-de-identify it. Each step prints the command it runs, what the CLI printed, and the exit code.
+de-identify it. Each step prints the command it runs, what the CLI printed, and the exit code. The
+tour never prints the message, or a file that holds it: only the CLI's value-free output, the files'
+line counts and segment names.
 
 Libraries: [`@cosyte/cli`](https://docs.cosyte.com/cli/), [`@cosyte/hl7`](https://docs.cosyte.com/hl7/),
 [`@cosyte/synth`](https://docs.cosyte.com/synth/).
@@ -45,7 +48,8 @@ exit stops the tour with that code, so `npm start` fails when a step fails.
 validation verdict, the conversion result and the redact manifest. It reads the files the tour wrote
 and checks them against the synthetic input. It then adds a visit number (`PV1-19`) to the same
 message and checks that `redact` refuses it: exit `1`, nothing on stdout, and the blocked locus named
-on stderr without its value.
+on stderr without its value. It also checks that the tour's own output holds no identifier from
+`PID` and no segment of the message or of its de-identified copy.
 
 ## Before you build on it
 
@@ -67,49 +71,19 @@ What `npm start` prints, as the starter's README gives it. This section and the 
 ```text
 == The CLI: cosyte from node_modules/.bin
 $ cosyte --version
-0.1.1
+0.1.8
 exit 0
 
 == Synthetic input from @cosyte/synth
 $ node src/make-fixtures.js out
 Wrote out/adt-a01.hl7, a synthetic ADT^A01 from @cosyte/synth (seed 12345):
-  MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|20220305042943||ADT^A01|SYNTH4722901508|P|2.5
-  EVN|A01|20220305042943
-  PID|1||26068087^^^COSYTE-SYNTH^MR||Quillfeather^Fixtura||19610809|M|||7117 Sample Street^^Synthville^MN^00000||(528) 555-0105||||||969217321
-  PV1|1|E|SYNTHWARD^909^01
+  285 characters, segments MSH EVN PID PV1
 exit 0
 
 == 1. parse: detect the format and write the message as typed JSON
 $ cosyte parse out/adt-a01.hl7 > out/adt-a01.parsed.json
 exit 0
-The first 27 of 522 lines of out/adt-a01.parsed.json:
-{
-  "format": "hl7",
-  "model": {
-    "encodingCharacters": {
-      "field": "|",
-      "component": "^",
-      "repetition": "~",
-      "escape": "\\",
-      "subcomponent": "&"
-    },
-    "segments": [
-      {
-        "name": "MSH",
-        "fields": [
-          {
-            "repetitions": [
-              {
-                "components": [
-                  {
-                    "subcomponents": [
-                      "|"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "isNull": false
+out/adt-a01.parsed.json holds 522 lines of JSON, every value of the message among them.
 
 == 2. inspect: a value-free summary of the same message
 $ cosyte inspect out/adt-a01.hl7
@@ -155,7 +129,7 @@ exit 0
 
 == 6. redact: a de-identified copy via @cosyte/deid (exit 1, and no copy, if it blocks a locus)
 $ cosyte redact out/adt-a01.hl7 > out/adt-a01.redacted.hl7
-cosyte: redact: delegated to @cosyte/deid 0.1.1: Safe-Harbor-transformed per the configured policy
+cosyte: redact: delegated to @cosyte/deid 0.1.5: Safe-Harbor-transformed per the configured policy
 cosyte: redact: DATES generalize MSH-7[0] x1 transformed DEID_RESIDUAL_RETAINED
 cosyte: redact: DATES generalize EVN-2[0] x1 transformed DEID_RESIDUAL_RETAINED
 cosyte: redact: MRN redact PID-3[0] x1 removed DEID_CATEGORY_REMOVED
@@ -167,11 +141,7 @@ cosyte: redact: SSN redact PID-19 x1 removed DEID_CATEGORY_REMOVED
 cosyte: redact: hl7: 8 loci acted on (4 transformed, 4 removed, 0 blocked)
 cosyte: redact: identifier surrogates are keyed with a per-invocation ephemeral key: consistent within this output, not stable across runs
 exit 0
-The de-identified message in out/adt-a01.redacted.hl7:
-  MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|2022||ADT^A01|SYNTH4722901508|P|2.5
-  EVN|A01|2022
-  PID|1||^^^COSYTE-SYNTH^MR||||1961|M|||^^^^000||||||||
-  PV1|1|E|SYNTHWARD^909^01
+The de-identified copy in out/adt-a01.redacted.hl7 has the segments MSH EVN PID PV1.
 ```
 
 ## Files
@@ -260,11 +230,14 @@ export function writeFixtures(dir) {
   return { adt };
 }
 
-// Run as a script (not imported): write the files and show what went into them.
+// Run as a script (not imported): write the files and say what went into them. It prints segment
+// names and a length, never the message: synthetic or not, a message holds a patient's values.
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { adt } = writeFixtures(process.argv[2] ?? "out");
+  const wire = syntheticAdmit(SEED);
+  const segmentNames = wire.split("\r").filter(Boolean).map((segment) => segment.slice(0, 3));
   console.log(`Wrote ${adt}, a synthetic ADT^A01 from @cosyte/synth (seed ${SEED}):`);
-  for (const segment of syntheticAdmit(SEED).split("\r").filter(Boolean)) console.log(`  ${segment}`);
+  console.log(`  ${wire.length} characters, segments ${segmentNames.join(" ")}`);
 }
 ```
 
@@ -275,7 +248,8 @@ if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(
 # A tour of the `cosyte` command from @cosyte/cli over a synthetic HL7 v2 admit message:
 # parse, inspect, validate, convert to FHIR R4 and de-identify. Each step prints the command it
 # runs, what the CLI printed, and the exit code. Run it with `npm start`, or `bash tour.sh` after
-# `npm install`.
+# `npm install`. It never prints a message or a file that holds one, synthetic as they are: only the
+# CLI's value-free output, line counts and segment names.
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -290,7 +264,6 @@ ADT="$OUT/adt-a01.hl7"
 PARSED="$OUT/adt-a01.parsed.json"
 BUNDLE="$OUT/adt-a01.fhir.json"
 REDACTED="$OUT/adt-a01.redacted.hl7"
-PREVIEW_LINES=27
 
 # Print a step heading, with a blank line before every heading but the first.
 headings=0
@@ -330,8 +303,7 @@ run node src/make-fixtures.js "$OUT"
 
 heading "1. parse: detect the format and write the message as typed JSON"
 run_to "$PARSED" cosyte parse "$ADT"
-echo "The first $PREVIEW_LINES of $(wc -l <"$PARSED" | tr -d ' ') lines of $PARSED:"
-head -n "$PREVIEW_LINES" "$PARSED"
+echo "$PARSED holds $(wc -l <"$PARSED" | tr -d ' ') lines of JSON, every value of the message among them."
 
 heading "2. inspect: a value-free summary of the same message"
 run cosyte inspect "$ADT"
@@ -347,6 +319,6 @@ run cosyte inspect "$BUNDLE"
 
 heading "6. redact: a de-identified copy via @cosyte/deid (exit 1, and no copy, if it blocks a locus)"
 run_to "$REDACTED" cosyte redact "$ADT"
-echo "The de-identified message in $REDACTED:"
-tr '\r' '\n' <"$REDACTED" | sed -e '/^$/d' -e 's/^/  /'
+names=$(tr '\r' '\n' <"$REDACTED" | sed '/^$/d' | cut -c1-3 | paste -sd ' ' -)
+echo "The de-identified copy in $REDACTED has the segments $names."
 ```

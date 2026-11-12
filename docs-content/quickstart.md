@@ -26,8 +26,9 @@ npm ci
 npm start
 ```
 
-It prints the synthetic message, the de-identified message, the manifest of what the policy changed
-(a locus, a category, a transform and a code per row, never a value), the positions it passed
+It prints how many fields of each segment hold a value before and after, the precision of each date
+before and after, the manifest of what the policy changed (a locus, a category, a transform and a
+code per row, never a value), the positions it passed
 through without a rule, and a last check: every identifier read from the input, searched for in the
 output, the manifest and the residual list. Its three `Found in` lines each end in `0`, and the
 process exits 0. If an identifier were found, it would exit 1. The whole output is on the

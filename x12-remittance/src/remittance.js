@@ -144,22 +144,24 @@ export function balanceChecks(remittance) {
     result: verdict(charged, adjusted && paid?.add(adjusted)),
   });
 
+  // A check names its claim by position: the patient control number (CLP-01) identifies a patient,
+  // and a check's name is printed.
   const checks = [];
-  for (const claim of remittance.claims) {
+  remittance.claims.forEach((claim, claimIndex) => {
     claim.serviceLines.forEach((line, index) => {
       const adjusted = sum(line.adjustments.map((adjustment) => adjustment.amount));
       checks.push({
-        name: `claim ${claim.patientControlNumber} line ${index + 1}`,
+        name: `claim ${claimIndex + 1} line ${index + 1}`,
         ...chargeEquation(line.chargeAmount, line.paymentAmount, adjusted),
       });
     });
     const everyAdjustment = [...claim.adjustments, ...claim.serviceLines.flatMap((line) => line.adjustments)];
     const adjusted = sum(everyAdjustment.map((adjustment) => adjustment.amount));
     checks.push({
-      name: `claim ${claim.patientControlNumber}`,
+      name: `claim ${claimIndex + 1}`,
       ...chargeEquation(claim.totalChargeAmount, claim.totalPaymentAmount, adjusted),
     });
-  }
+  });
 
   const payment = remittance.payment.totalActualPayment;
   const onClaims = sum(remittance.claims.map((claim) => claim.totalPaymentAmount));

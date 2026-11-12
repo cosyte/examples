@@ -5,6 +5,11 @@ payment and its trace number; the payer and payee; each claim with its status, a
 adjustments; and a check that recomputes the 835's three balance equations with exact decimal
 arithmetic.
 
+It prints no value that identifies the patient, synthetic as it is: a claim is named by its position,
+its patient control number and payer claim number are read into variables with their synthetic
+values in comments, and the 835 itself is shown only as its segment IDs. The payer and the payee are
+organizations, so they are named.
+
 Libraries: [`@cosyte/x12`](https://github.com/cosyte/x12),
 [`@cosyte/synth`](https://github.com/cosyte/synth).
 
@@ -20,32 +25,8 @@ Node 22 or later.
 ## Expected output
 
 ```text
-Synthetic 835 from @cosyte/synth (seed 42):
-  ISA*00*          *00*          *ZZ*SYNSUB448      *ZZ*SYNRCV084      *240321*2317*^*00501*441887323*0*T*:~
-  GS*HP*SYNSUB448*SYNRCV084*20240321*2317*83976*X*005010X221A1~
-  ST*835*7813*005010X221A1~
-  BPR*I*1733.00*C*ACH************20240321~
-  TRN*1*6727115*1563348988~
-  N1*PR*PLACEHOLDER BENEFIT ADMIN~
-  N3*4698 Mock Road~
-  N4*Synthville*IN*00000~
-  REF*2U*SYN99074~
-  N1*PE*MOCK CARE ASSOCIATES*XX*5462419363~
-  N3*4698 Mock Road~
-  N4*Synthville*IN*00000~
-  LX*1~
-  CLP*PTACCT032098*1*1803.00*1733.00*70.00*MB*ICN461420202*11::1~
-  NM1*QC*1*Nonesuch*Sampleton****MI*MBR81711168~
-  NM1*82*2*MOCK CARE ASSOCIATES*****XX*5462419363~
-  DTM*232*20240321~
-  DTM*233*20240321~
-  SVC*HC:99214:25*1803.00*1733.00~
-  DTM*472*20240321~
-  CAS*PR*1*70.00~
-  AMT*B6*1733.00~
-  SE*21*7813~
-  GE*1*83976~
-  IEA*1*441887323~
+Synthetic 835 from @cosyte/synth (seed 42), segments:
+  ISA GS ST BPR TRN N1 N3 N4 REF N1 N3 N4 LX CLP NM1 NM1 DTM DTM SVC DTM CAS AMT SE GE IEA
 
 Payment (BPR, TRN):
   amount                 1733.00 (credit)
@@ -56,7 +37,7 @@ Payment (BPR, TRN):
 Payer: PLACEHOLDER BENEFIT ADMIN (REF 2U SYN99074)
 Payee: MOCK CARE ASSOCIATES (XX 5462419363)
 
-Claim PTACCT032098 (payer claim number ICN461420202)
+Claim 1 (patient control number and payer claim number present)
   status                 1 Processed as Primary
   charged                1803.00
   paid                   1733.00
@@ -68,8 +49,8 @@ Claim PTACCT032098 (payer claim number ICN461420202)
 Provider-level adjustments (PLB): none
 
 Balance (exact decimal arithmetic):
-  balanced        claim PTACCT032098 line 1: 1803.00 charged = 1733.00 paid + 70.00 adjusted
-  balanced        claim PTACCT032098: 1803.00 charged = 1733.00 paid + 70.00 adjusted
+  balanced        claim 1 line 1: 1803.00 charged = 1733.00 paid + 70.00 adjusted
+  balanced        claim 1: 1803.00 charged = 1733.00 paid + 70.00 adjusted
   balanced        payment: 1733.00 paid = 1733.00 paid on claims - 0.00 provider adjustments
 
 Warnings (parse and 835 reader): 0
@@ -86,7 +67,8 @@ npm test
 ```
 
 The test runs `src/main.js` and checks the payment, claim status, amounts, adjustments, and balance
-lines it prints against a fresh reading of the same 835. It then splits the 835 into segments by
+lines it prints against a fresh reading of the same 835, and that the output holds no patient name,
+member ID, patient control number, or payer claim number, and no segment of the 835. It then splits the 835 into segments by
 hand, without the library, and checks the typed reading against the raw `BPR`, `TRN`, `CLP`, and
 `CAS` segments. Two more tests change the 835 before reading it. Raising `BPR-02` by 1.00 must
 report the payment out of balance, and `get835` must warn `X12_835_REMIT_BALANCE_MISMATCH`. Adding a
@@ -147,8 +129,8 @@ The code is in [`src/remittance.js`](src/remittance.js) and [`src/main.js`](src/
   amounts (`AMT`), and service dates are on the model and are not printed.
 - The balance check says whether the 835 adds up. It does not check the amounts against your contract
   or against the claim you sent.
-- The output shows the raw 835, which includes a patient name and member ID because the data is
-  synthetic. A production service should not write PHI to its logs.
+- The output shows the 835's segment IDs, not its segments, and no patient name, member ID, or
+  claim number, synthetic as they are. A production service should not write PHI to its logs either.
 
 ## Synthetic data
 

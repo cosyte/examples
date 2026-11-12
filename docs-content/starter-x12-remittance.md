@@ -9,7 +9,8 @@ description: "An 835 read into the payment, each claim's status, amounts and adj
 
 The `x12-remittance` starter summarizes a synthetic X12 835 remittance: the payment and its trace
 number, the payer and payee, each claim with its status, amounts and adjustments, and a check that
-recomputes the 835's three balance equations with exact decimal arithmetic.
+recomputes the 835's three balance equations with exact decimal arithmetic. It prints no value that
+identifies the patient: a claim is named by its position, and the 835 shows only its segment IDs.
 
 Libraries: [`@cosyte/x12`](https://docs.cosyte.com/x12/),
 [`@cosyte/synth`](https://docs.cosyte.com/synth/).
@@ -27,6 +28,9 @@ Libraries: [`@cosyte/x12`](https://docs.cosyte.com/x12/),
   instead of counting as zero.
 - **A check you can keep.** `src/main.js` exits 1 when an equation does not balance: a check to keep
   in front of posting.
+- **Reading without printing.** `src/main.js` reads each claim's patient control number and payer
+  claim number into variables, with their synthetic values in comments, and prints only that they
+  are there.
 
 ## Run it
 
@@ -41,7 +45,8 @@ npm start
 The same seed gives the same output on every run.
 
 `npm test` runs the starter and checks the payment, claim status, amounts, adjustments and balance
-lines it prints against a fresh reading of the same 835. It splits the 835 into segments by hand and
+lines it prints against a fresh reading of the same 835, and that the output holds no patient name,
+member ID or claim number and no segment of the 835. It splits the 835 into segments by hand and
 checks the typed reading against the raw `BPR`, `TRN`, `CLP` and `CAS` segments. Raising `BPR-02` by
 1.00 must report the payment out of balance, and adding a 10.00 provider-level take-back with
 `BPR-02` lowered to match must still balance.
@@ -53,40 +58,16 @@ checks the typed reading against the raw `BPR`, `TRN`, `CLP` and `CAS` segments.
 - The synthetic 835 is built to exercise the reader, not to pass a trading partner's edits.
 - The balance check says whether the 835 adds up. It does not check the amounts against your
   contract or the claim you sent.
-- The output shows the raw 835, which includes a patient name and member ID because the data is
-  synthetic. A production service should not write PHI to its logs.
+- The output shows the 835's segment IDs, not its segments, and no patient name, member ID or claim
+  number, synthetic as they are. A production service should not write PHI to its logs either.
 
 ## Expected output
 
 What `npm start` prints, as the starter's README gives it. This section and the next are generated from the starter by `scripts/docs-content.mjs`, and CI fails when they no longer match it.
 
 ```text
-Synthetic 835 from @cosyte/synth (seed 42):
-  ISA*00*          *00*          *ZZ*SYNSUB448      *ZZ*SYNRCV084      *240321*2317*^*00501*441887323*0*T*:~
-  GS*HP*SYNSUB448*SYNRCV084*20240321*2317*83976*X*005010X221A1~
-  ST*835*7813*005010X221A1~
-  BPR*I*1733.00*C*ACH************20240321~
-  TRN*1*6727115*1563348988~
-  N1*PR*PLACEHOLDER BENEFIT ADMIN~
-  N3*4698 Mock Road~
-  N4*Synthville*IN*00000~
-  REF*2U*SYN99074~
-  N1*PE*MOCK CARE ASSOCIATES*XX*5462419363~
-  N3*4698 Mock Road~
-  N4*Synthville*IN*00000~
-  LX*1~
-  CLP*PTACCT032098*1*1803.00*1733.00*70.00*MB*ICN461420202*11::1~
-  NM1*QC*1*Nonesuch*Sampleton****MI*MBR81711168~
-  NM1*82*2*MOCK CARE ASSOCIATES*****XX*5462419363~
-  DTM*232*20240321~
-  DTM*233*20240321~
-  SVC*HC:99214:25*1803.00*1733.00~
-  DTM*472*20240321~
-  CAS*PR*1*70.00~
-  AMT*B6*1733.00~
-  SE*21*7813~
-  GE*1*83976~
-  IEA*1*441887323~
+Synthetic 835 from @cosyte/synth (seed 42), segments:
+  ISA GS ST BPR TRN N1 N3 N4 REF N1 N3 N4 LX CLP NM1 NM1 DTM DTM SVC DTM CAS AMT SE GE IEA
 
 Payment (BPR, TRN):
   amount                 1733.00 (credit)
@@ -97,7 +78,7 @@ Payment (BPR, TRN):
 Payer: PLACEHOLDER BENEFIT ADMIN (REF 2U SYN99074)
 Payee: MOCK CARE ASSOCIATES (XX 5462419363)
 
-Claim PTACCT032098 (payer claim number ICN461420202)
+Claim 1 (patient control number and payer claim number present)
   status                 1 Processed as Primary
   charged                1803.00
   paid                   1733.00
@@ -109,8 +90,8 @@ Claim PTACCT032098 (payer claim number ICN461420202)
 Provider-level adjustments (PLB): none
 
 Balance (exact decimal arithmetic):
-  balanced        claim PTACCT032098 line 1: 1803.00 charged = 1733.00 paid + 70.00 adjusted
-  balanced        claim PTACCT032098: 1803.00 charged = 1733.00 paid + 70.00 adjusted
+  balanced        claim 1 line 1: 1803.00 charged = 1733.00 paid + 70.00 adjusted
+  balanced        claim 1: 1803.00 charged = 1733.00 paid + 70.00 adjusted
   balanced        payment: 1733.00 paid = 1733.00 paid on claims - 0.00 provider adjustments
 
 Warnings (parse and 835 reader): 0
@@ -161,8 +142,15 @@ const wire = syntheticRemittance(SEED);
 const { interchange, remittance } = readRemittance(wire);
 const terminator = interchange.delimiters.segment;
 
-console.log(`Synthetic 835 from @cosyte/synth (seed ${SEED}):`);
-for (const segment of wire.split(terminator).filter(Boolean)) console.log(`  ${segment}${terminator}`);
+// Nothing below prints a value that identifies a patient, synthetic or not: an example that logs a
+// patient's account number teaches a pipeline to log one. It prints segment IDs, codes, amounts and
+// counts, and names the payer and the payee, which are organizations.
+const segmentIds = wire
+  .split(terminator)
+  .filter((segment) => segment.trim() !== "")
+  .map((segment) => segment.trim().split("*")[0]);
+console.log(`Synthetic 835 from @cosyte/synth (seed ${SEED}), segments:`);
+console.log(`  ${segmentIds.join(" ")}`);
 
 /**
  * A `CCYYMMDD` date (BPR-16, PLB-02) as `YYYY-MM-DD`. Those elements always carry the `D8` shape, so
@@ -223,8 +211,12 @@ printRows("  ", paymentRows);
 console.log(`\nPayer: ${partyLine(remittance.payer)}`);
 console.log(`Payee: ${partyLine(remittance.payee)}`);
 
-for (const claim of remittance.claims.map(describeClaim)) {
-  console.log(`\nClaim ${claim.patientControlNumber} (payer claim number ${claim.payerClaimControlNumber})`);
+remittance.claims.map(describeClaim).forEach((claim, claimIndex) => {
+  // The claim's identifiers are read, never printed. The values in these comments are synthetic.
+  const patientControlNumber = claim.patientControlNumber; // "PTACCT032098", synthetic
+  const payerClaimNumber = claim.payerClaimControlNumber; // "ICN461420202", synthetic
+  const numbers = [patientControlNumber && "patient control number", payerClaimNumber && "payer claim number"];
+  console.log(`\nClaim ${claimIndex + 1} (${numbers.filter(Boolean).join(" and ") || "no numbers"} present)`);
   printRows("  ", [
     ["status", `${claim.status} ${claim.statusDescription ?? "(no bundled description)"}`],
     ["charged", shown(claim.charged)],
@@ -242,7 +234,7 @@ for (const claim of remittance.claims.map(describeClaim)) {
       printRows("    ", [["adjustment", adjustmentLine(adjustment)]]);
     }
   });
-}
+});
 
 const plbs = remittance.providerAdjustments;
 console.log(`\nProvider-level adjustments (PLB): ${plbs.length === 0 ? "none" : plbs.length}`);
@@ -412,22 +404,24 @@ export function balanceChecks(remittance) {
     result: verdict(charged, adjusted && paid?.add(adjusted)),
   });
 
+  // A check names its claim by position: the patient control number (CLP-01) identifies a patient,
+  // and a check's name is printed.
   const checks = [];
-  for (const claim of remittance.claims) {
+  remittance.claims.forEach((claim, claimIndex) => {
     claim.serviceLines.forEach((line, index) => {
       const adjusted = sum(line.adjustments.map((adjustment) => adjustment.amount));
       checks.push({
-        name: `claim ${claim.patientControlNumber} line ${index + 1}`,
+        name: `claim ${claimIndex + 1} line ${index + 1}`,
         ...chargeEquation(line.chargeAmount, line.paymentAmount, adjusted),
       });
     });
     const everyAdjustment = [...claim.adjustments, ...claim.serviceLines.flatMap((line) => line.adjustments)];
     const adjusted = sum(everyAdjustment.map((adjustment) => adjustment.amount));
     checks.push({
-      name: `claim ${claim.patientControlNumber}`,
+      name: `claim ${claimIndex + 1}`,
       ...chargeEquation(claim.totalChargeAmount, claim.totalPaymentAmount, adjusted),
     });
-  }
+  });
 
   const payment = remittance.payment.totalActualPayment;
   const onClaims = sum(remittance.claims.map((claim) => claim.totalPaymentAmount));

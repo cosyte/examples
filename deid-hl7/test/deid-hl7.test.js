@@ -12,10 +12,10 @@ const starterDir = fileURLToPath(new URL("..", import.meta.url));
 /** @param {string} text */
 const literal = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-test("npm start prints the de-identified message, a value-free manifest and the residual list", async () => {
+test("npm start prints field counts, a value-free manifest and the residual list", async () => {
   const { stdout } = await run(process.execPath, ["src/main.js"], { cwd: starterDir });
 
-  assert.match(stdout, /De-identified \(Safe Harbor policy\):/);
+  assert.match(stdout, /^ {2}PID {3}8 -> 5$/m);
   for (const [locus, category, disposition] of [
     ["MSH-7[0]", "DATES", "transformed"],
     ["EVN-2[0]", "DATES", "transformed"],
@@ -31,6 +31,20 @@ test("npm start prints the de-identified message, a value-free manifest and the 
   assert.match(stdout, /Found in the de-identified message: 0/);
   assert.match(stdout, /Found in the manifest: 0/);
   assert.match(stdout, /Found in the residual list: 0/);
+});
+
+test("npm start prints no identifier from the message and no segment of it", async () => {
+  const { stdout } = await run(process.execPath, ["src/main.js"], { cwd: starterDir });
+  const wire = syntheticAdmit(12345);
+  const { input, output } = deidentifyMessage(wire);
+
+  for (const value of patientIdentifiers(input)) {
+    assert.ok(!stdout.includes(value), "npm start printed an identifier from the input");
+  }
+  for (const segment of [...wire.split("\r"), ...output.toString().split("\r")].filter(Boolean)) {
+    assert.ok(!stdout.includes(segment), `npm start printed a whole ${segment.slice(0, 3)} segment`);
+  }
+  assert.match(stdout, /^ {2}PID-7 {2}day -> year$/m);
 });
 
 test("no PID identifier from the input survives de-identification", () => {

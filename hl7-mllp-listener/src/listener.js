@@ -28,29 +28,32 @@ export function summarizeAdmit(message) {
   return {
     type: meta.type, // MSH-9, for example ADT^A01
     controlId: meta.controlId, // MSH-10
-    patientName: patient?.fullName, // PID-5
-    mrn: patient?.mrn, // PID-3, the identifier typed MR
+    patientName: patient?.fullName, // PID-5, "Fixtura Quillfeather" for seed 12345, synthetic
+    mrn: patient?.mrn, // PID-3, the identifier typed MR: "26068087" for seed 12345, synthetic
     patientClass: visit?.patientClass, // PV1-2: E emergency, I inpatient, O outpatient (table 0004)
     location: visit?.location, // PV1-3: point of care, room, bed
   };
 }
 
 /**
- * The summary as printable lines. A value the message does not carry prints as "(none)".
+ * The summary as printable lines, safe to write to a log: the message type, its control id and the
+ * visit class are printed, and for the patient's name, record number and location only whether each
+ * is there. A production listener logs the same way, since its messages carry real patients.
  *
  * @param {ReturnType<typeof summarizeAdmit>} summary
  * @returns {string[]}
  */
 export function formatSummary({ type, controlId, patientName, mrn, patientClass, location }) {
-  const place = [
-    location?.pointOfCare,
-    location?.room && `room ${location.room}`,
-    location?.bed && `bed ${location.bed}`,
+  const given = (/** @type {unknown} */ value) => (value ? "present" : "absent");
+  const parts = [
+    location?.pointOfCare && "point of care",
+    location?.room && "room",
+    location?.bed && "bed",
   ].filter(Boolean);
-  const where = place.length > 0 ? place.join(", ") : "(none)";
+  const where = parts.length > 0 ? `given (${parts.join(", ")})` : "(none)";
   return [
     `${type ?? "(none)"}, control id ${controlId ?? "(none)"}`,
-    `patient ${patientName ?? "(none)"}, MRN ${mrn ?? "(none)"}`,
+    `patient name ${given(patientName)}, MRN ${given(mrn)}`,
     `visit class ${patientClass ?? "(none)"}, location ${where}`,
   ];
 }

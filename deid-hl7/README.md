@@ -3,7 +3,9 @@
 Run a synthetic HL7 v2 admit message through the Safe Harbor policy of
 [`@cosyte/deid`](https://github.com/cosyte/deid) and print the value-free manifest: which identifier
 categories it acted on, at which locus, and how, without a single value. It also lists the positions
-the policy passed through without a rule, so you can see what it did not examine.
+the policy passed through without a rule, so you can see what it did not examine. Like every starter
+here, it prints no value from the message: segment names, counts, the precision of each date and
+codes, never a name, a number or a whole segment.
 
 Libraries: [`@cosyte/deid`](https://github.com/cosyte/deid),
 [`@cosyte/hl7`](https://github.com/cosyte/hl7), [`@cosyte/synth`](https://github.com/cosyte/synth).
@@ -20,17 +22,18 @@ Node 22 or later. The Safe Harbor policy uses no key, so every run prints the sa
 ## Expected output
 
 ```text
-Synthetic ADT^A01 from @cosyte/synth (seed 12345):
-  MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|20220305042943||ADT^A01|SYNTH4722901508|P|2.5
-  EVN|A01|20220305042943
-  PID|1||26068087^^^COSYTE-SYNTH^MR||Quillfeather^Fixtura||19610809|M|||7117 Sample Street^^Synthville^MN^00000||(528) 555-0105||||||969217321
-  PV1|1|E|SYNTHWARD^909^01
+Synthetic ADT^A01 from @cosyte/synth (seed 12345), 4 segments.
 
-De-identified (Safe Harbor policy):
-  MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|2022||ADT^A01|SYNTH4722901508|P|2.5
-  EVN|A01|2022
-  PID|1||^^^COSYTE-SYNTH^MR||||1961|M|||^^^^000||||||||
-  PV1|1|E|SYNTHWARD^909^01
+Fields holding a value, per segment, before and after (Safe Harbor policy):
+  MSH  10 -> 10
+  EVN   2 -> 2
+  PID   8 -> 5
+  PV1   3 -> 3
+
+Date precision, before and after:
+  PID-7  day -> year
+  MSH-7  time -> year
+  EVN-2  time -> year
 
 Manifest (value-free: locus, category, transform, disposition, code):
   MSH-7[0]     DATES        generalize   transformed  DEID_RESIDUAL_RETAINED
@@ -54,7 +57,9 @@ Found in the manifest: 0
 Found in the residual list: 0
 ```
 
-The medical record number in `PID-3` is removed, and its assigning authority and type code stay. The
+The five fields that still hold something in `PID` are its set ID, the year of birth, sex, and what
+is left of the record number and the address. The medical record number in `PID-3` is removed, and its assigning authority
+and type code stay. The
 name, phone, and national identifier are removed too. The date of birth and the message and event
 timestamps (`MSH-7`, `EVN-2`) keep only their year, and the address keeps only the Safe Harbor
 three-digit ZIP (`000` for a restricted prefix). The unexamined residuals are the positions no rule
@@ -68,7 +73,8 @@ npm test
 ```
 
 The test runs `src/main.js` and checks the manifest rows for the medical record number, name, date
-of birth, phone, national identifier, and the two timestamps. It then de-identifies the message
+of birth, phone, national identifier, and the two timestamps, and that the output holds no
+identifier from the input and no segment of the message. It then de-identifies the message
 again in process and checks that no identifier read from the input `PID` segment appears in the
 output message, the manifest, or the residual list, and that each of the three dates keeps its year
 and nothing finer.

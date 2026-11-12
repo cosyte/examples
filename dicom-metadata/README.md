@@ -3,7 +3,10 @@
 Read the patient, study, and series metadata of a synthetic DICOM Part 10 file with
 [`@cosyte/dicom`](https://github.com/cosyte/dicom), then de-identify the header with
 [`@cosyte/deid`](https://github.com/cosyte/deid) and print the value-free manifest of what it
-changed.
+changed. It prints no value that identifies a person, before or after: the transfer syntax, SOP
+class and modality are codes, and for every other attribute it prints whether it is present, or its
+length. `src/main.js` reads the patient's name, ID, birth date and accession number into variables,
+with their synthetic values in comments, to show what each holds.
 
 Libraries: [`@cosyte/dicom`](https://github.com/cosyte/dicom), [`@cosyte/deid`](https://github.com/cosyte/deid).
 
@@ -22,21 +25,20 @@ Node 22 or later. The synthetic file is built in memory on every run; nothing is
 Synthetic CT header (804 bytes of DICOM Part 10, built in memory):
   Transfer syntax      1.2.840.10008.1.2.1 (Explicit VR Little Endian)
   SOP class            1.2.840.10008.5.1.4.1.1.2 (CT Image Storage)
-  SOP instance UID     2.25.180278240445437908828124246322305359710
-  Patient name         ZZTEST^SYNTHETIC
-  Patient ID           ZZTEST-0001 (issuer EXAMPLE.ORG)
-  Birth date           1970-01-01
-  Sex                  O
-  Study instance UID   2.25.10155276760012127015659500753591548111
-  Study date           2020-01-02
-  Accession number     ZZACC0001
   Modality             CT
-  Series instance UID  2.25.91500837647300718321059351149439276398
   Parse warnings       none
+  Patient name         present
+  Patient ID           present
+  Birth date           present
+  Study date           present
+  Accession number     present
+  Study instance UID   present
+  Series instance UID  present
+  SOP instance UID     present
 
 De-identified header (962 bytes, read back from the written file):
   (0008,0016) SOPClassUID                              1.2.840.10008.5.1.4.1.1.2
-  (0008,0018) SOPInstanceUID                           2.25.86704070274506178779869117891871399775162034538788250112726
+  (0008,0018) SOPInstanceUID                           (64 characters)
   (0008,0020) StudyDate                                (empty)
   (0008,0030) StudyTime                                (empty)
   (0008,0050) AccessionNumber                          (empty)
@@ -47,13 +49,13 @@ De-identified header (962 bytes, read back from the written file):
   (0010,0030) PatientBirthDate                         (empty)
   (0010,0040) PatientSex                               (empty)
   (0012,0062) PatientIdentityRemoved                   YES
-  (0012,0063) DeidentificationMethod                   Cosyte @cosyte/deid, PS3.15 Basic Application Level Confidentiality Profile (metadata only); policy "safe-harbor"
+  (0012,0063) DeidentificationMethod                   (113 characters)
   (0012,0064) DeidentificationMethodCodeSequence       (sequence, 1 item)
-  (0020,000D) StudyInstanceUID                         2.25.27220899364256410842694272346482303969957183573538923698291
-  (0020,000E) SeriesInstanceUID                        2.25.76808116996479560595985857159634965361995450169669996222346
+  (0020,000D) StudyInstanceUID                         (64 characters)
+  (0020,000E) SeriesInstanceUID                        (64 characters)
   (0020,0010) StudyID                                  (empty)
-  (0020,0011) SeriesNumber                             1
-  (0020,0013) InstanceNumber                           1
+  (0020,0011) SeriesNumber                             (1 character)
+  (0020,0013) InstanceNumber                           (1 character)
   (0028,0303) LongitudinalTemporalInformationModified  REMOVED
 
 Manifest (value-free: locus, category, transform, disposition, code):
@@ -84,7 +86,9 @@ Found in the manifest: 0
 ```
 
 The output is the same on every run: the synthetic UIDs come from fixed names, and `@cosyte/dicom`
-derives each replacement UID from its source UID. The patient attributes are emptied; Institution
+derives each replacement UID from its source UID. The de-identified header shows a value only for
+the coded attributes (SOP Class UID, Modality, and the two attributes the pass sets), and the length
+of every other one, the replacement UIDs included. The patient attributes are emptied; Institution
 Name, Issuer of Patient ID, and the two descriptions are removed; and the Study, Series, and SOP
 Instance UIDs are replaced. The pass records itself in `(0012,0062)`, in the text of `(0012,0063)`,
 and as the code `113100` (Basic Application Confidentiality Profile) in `(0012,0064)`. It also sets
@@ -97,8 +101,9 @@ dates and times were removed.
 npm test
 ```
 
-The test runs `src/main.js` and checks the metadata lines against the values parsed from the
-synthetic file. It then de-identifies the header in process and checks that no identifying value
+The test runs `src/main.js` and checks the coded metadata lines against the values parsed from the
+synthetic file, and that the output holds no identifying value from the input and none of the
+replacement UIDs. It then de-identifies the header in process and checks that no identifying value
 from the input appears in the written file or in the manifest, that each UID is replaced and
 recorded in the shared UID map, and that the manifest names the category of the patient name, ID,
 and birth date. Last, it checks that the pass records itself as text and as a code, marks the dates

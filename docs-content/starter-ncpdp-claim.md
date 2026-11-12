@@ -10,7 +10,9 @@ description: "An NCPDP Telecom B1 claim and a paid response parsed into routing,
 The `ncpdp-claim` starter parses a synthetic NCPDP Telecom D.0 billing claim (B1) and a paid
 response to it, and prints what a pharmacy biller checks: routing, product, quantity and the amounts
 submitted, then the claim's status and the amounts paid. Every amount is read as text, never as a
-floating-point number.
+floating-point number. It prints no value that identifies the patient: the group ID, the
+prescription number and the authorization number print only as sent or not, and the date of service
+as its precision.
 
 Libraries: [`@cosyte/ncpdp`](https://docs.cosyte.com/ncpdp/),
 [`@cosyte/synth`](https://docs.cosyte.com/synth/).
@@ -30,6 +32,8 @@ Libraries: [`@cosyte/ncpdp`](https://docs.cosyte.com/ncpdp/),
 - **Building a claim.** The starter rebuilds the synthetic claim with a Pricing segment through
   `buildTelecomRequest`, which refuses a field ID that is not two characters or a value that holds a
   separator.
+- **Reading without printing.** `src/main.js` reads the group ID, the prescription number and the
+  date of service into variables, with their synthetic values in comments.
 
 ## Run it
 
@@ -41,11 +45,12 @@ npm ci
 npm start
 ```
 
-Each amount prints beside its wire form. The response prints with its control characters named:
-`<GS>` opens the transaction, `<RS>` each segment, `<FS>` each field.
+Each amount prints beside its wire form. The response prints its segments and how many lines its
+wire text takes, never the text, and whether the prescription number it echoes matches the claim's.
 
-`npm test` runs the starter and checks the product line, the echoed prescription number, the paid
-status, and that neither parse raised a warning. It then checks the claim view against the Claim
+`npm test` runs the starter and checks the product line, that the echoed prescription number
+matches, the paid status, and that neither parse raised a warning, and that the output holds no
+value that identifies the patient and no line of the wire. It then checks the claim view against the Claim
 segment's own fields, that the paid response echoes the claim and its total paid equals ingredient
 cost plus dispensing fee minus patient pay, and that a rejected response reads as rejected with
 every reject code in wire order, even when its status field says paid.
@@ -67,11 +72,11 @@ What `npm start` prints, as the starter's README gives it. This section and the 
 ```text
 Claim: synthetic B1 from @cosyte/synth (seed 1), Pricing segment added
   Segments                    01 Patient, 04 Insurance, 03 Prescriber, 07 Claim, 11 Pricing
-  BIN / PCN / group           999999 / SYN2561 / GRP05182
+  BIN / PCN / group           999999 / SYN2561 / group ID sent
   Transaction                 B1, version D0
-  Date of service             20240218
+  Date of service             a day (CCYYMMDD)
   Pharmacy                    3212672670 (ID qualifier 01)
-  Prescription                RX2929783, fill 4
+  Prescription                number sent, fill 4
   Product/service ID          00000070707 (qualifier 03)
   Quantity dispensed          31 on the wire, 0.031 decoded
   Days supply                 60
@@ -83,15 +88,12 @@ Claim: synthetic B1 from @cosyte/synth (seed 1), Pricing segment added
   Parse warnings              0
 
 Response: synthetic paid answer written by src/claim.js
-  D0B11A013212672670     20240218
-  <GS>
-  <RS><FS>AM21<FS>ANP<FS>F3SYNTHAUTH01
-  <RS><FS>AM22<FS>EM1<FS>D2RX2929783
-  <RS><FS>AM23<FS>F5100{<FS>F6405{<FS>F717E<FS>F9322E
-  Echoes                      B1, pharmacy 3212672670, prescription RX2929783
+  Segments                    21 Response Status, 22 Response Claim, 23 Response Pricing
+  Wire lines                  5
+  Echoes                      B1, pharmacy 3212672670, prescription number matches the claim
   Transmission status         A
   Claim status                P, disposition paid
-  Authorization               SYNTHAUTH01
+  Authorization number        sent
   Reject codes                none
   Pricing paid                wire  amount
     Ingredient cost (F6)      405{   40.50
@@ -286,13 +288,22 @@ const b1 = claim(request);
 const { header } = request;
 const quantity = b1?.quantityDispensed;
 
+// Nothing below prints a value that identifies the patient, synthetic or not: an example that logs a
+// prescription number teaches a pipeline to log one. The claim's identifiers and its date of service
+// are read into variables, never printed. The values in these comments are synthetic.
+const groupId = b1?.groupId; // "GRP05182", synthetic
+const prescriptionNumber = b1?.prescriptionReferenceNumber; // "RX2929783", synthetic
+const dateOfService = header.dateOfService; // "20240218", synthetic
+/** @param {string | undefined} value Whether a field was sent, never its value. */
+const sent = (value) => (value ? "sent" : "absent");
+
 console.log(`Claim: synthetic B1 from @cosyte/synth (seed ${SEED}), Pricing segment added`);
 row("Segments", request.segments.map((s) => `${s.segmentId} ${s.name ?? "?"}`).join(", "));
-row("BIN / PCN / group", `${header.binNumber} / ${header.processorControlNumber} / ${b1?.groupId}`);
+row("BIN / PCN / group", `${header.binNumber} / ${header.processorControlNumber} / group ID ${sent(groupId)}`);
 row("Transaction", `${header.transactionCode}, version ${header.versionRelease}`);
-row("Date of service", header.dateOfService);
+row("Date of service", dateOfService?.length === 8 ? "a day (CCYYMMDD)" : sent(dateOfService));
 row("Pharmacy", `${header.serviceProviderId} (ID qualifier ${header.serviceProviderIdQualifier})`);
-row("Prescription", `${b1?.prescriptionReferenceNumber}, fill ${b1?.fillNumber}`);
+row("Prescription", `number ${sent(prescriptionNumber)}, fill ${b1?.fillNumber}`);
 row("Product/service ID", `${b1?.product?.id} (qualifier ${b1?.product?.qualifier})`);
 // Quantity Dispensed carries three implied decimal places; the library applies them string-wise.
 row("Quantity dispensed", `${quantity?.source} on the wire, ${quantity?.impliedDecimal} decoded`);
@@ -313,11 +324,13 @@ const pharmacy = response.responseHeader?.serviceProviderId;
 const rejects = status?.rejectCodes.map((reject) => reject.code) ?? [];
 
 console.log("\nResponse: synthetic paid answer written by src/claim.js");
-for (const line of visibleWire(responseWire)) console.log(`  ${line}`);
-row("Echoes", `${outcome?.transactionCode}, pharmacy ${pharmacy}, prescription ${echoedRx}`);
+row("Segments", response.segments.map((s) => `${s.segmentId} ${s.name ?? "?"}`).join(", "));
+row("Wire lines", String(visibleWire(responseWire).length));
+const rxMatches = echoedRx === prescriptionNumber ? "matches the claim" : "does not match the claim";
+row("Echoes", `${outcome?.transactionCode}, pharmacy ${pharmacy}, prescription number ${rxMatches}`);
 row("Transmission status", response.responseHeader?.headerResponseStatus);
 row("Claim status", `${status?.transactionResponseStatus}, disposition ${status?.disposition}`);
-row("Authorization", status?.authorizationNumber);
+row("Authorization number", sent(status?.authorizationNumber));
 row("Reject codes", rejects.join(", ") || "none");
 row("Pricing paid", "wire  amount");
 row("  Ingredient cost (F6)", amount(paid?.ingredientCostPaid));

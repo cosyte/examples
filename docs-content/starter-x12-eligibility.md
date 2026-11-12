@@ -10,7 +10,10 @@ description: "A 271 read into payer, subscriber, coverage status and benefit lin
 The `x12-eligibility` starter reads the plan and coverage facts out of a synthetic X12 271
 eligibility response: who answered, who is covered, the group number, the trace to match against
 your 270, and each benefit line. It then builds the 270 inquiry that the 271 answers, and matches the
-two by their trace.
+two by their trace. It prints no value that identifies the member: for the name, member ID, date of
+birth, group number and trace, whether each is there or the precision of a date, and for the
+interchanges only their segment IDs. Payers and providers are named only when they are
+organizations.
 
 Libraries: [`@cosyte/x12`](https://docs.cosyte.com/x12/),
 [`@cosyte/synth`](https://docs.cosyte.com/synth/).
@@ -30,6 +33,8 @@ Libraries: [`@cosyte/x12`](https://docs.cosyte.com/x12/),
 - **The 270.** `build270` builds the inquiry the 271 answers, under the trace the 271 echoes
   (`TRN-02`), and `get270Inquiry` reads it back. In your integration the order runs the other way:
   you build and send the 270, keep its trace, and match the 271 that comes back.
+- **Reading without printing.** `src/main.js` reads the member's name, ID, date of birth and group
+  number into variables, with their synthetic values in comments.
 
 ## Run it
 
@@ -43,7 +48,8 @@ npm start
 
 The same seed gives the same output on every run.
 
-`npm test` runs the starter and checks what it prints against a fresh reading of the same 271. It
+`npm test` runs the starter and checks what it prints against a fresh reading of the same 271, and
+that the output holds no value that identifies the member and no segment of the 271 or the 270. It
 splits the 271 into segments by hand, without the library, and checks the typed reading against the
 raw `NM1`, `REF`, `TRN` and `EB` segments. It builds a small 271 with co-payment, deductible and
 co-insurance lines and checks that each amount and percent stays exactly as sent, reads the built 270
@@ -59,45 +65,26 @@ reads as one.
 - The synthetic 271 carries one benefit line, so the cost-sharing path runs only in the test. Its
   `EB-08` percent is a whole number where the 271 guide defines a decimal fraction: read it as a
   placeholder.
-- The output shows a subscriber name, member ID and date of birth because the data is synthetic. A
-  production service should not write PHI to its logs.
+- The output says whether a subscriber name, member ID and date of birth are there and never prints
+  them, synthetic as they are. A production service should not write PHI to its logs either.
 
 ## Expected output
 
 What `npm start` prints, as the starter's README gives it. This section and the next are generated from the starter by `scripts/docs-content.mjs`, and CI fails when they no longer match it.
 
 ```text
-Synthetic 271 from @cosyte/synth (seed 42):
-  ISA*00*          *00*          *ZZ*SYNSUB448      *ZZ*SYNRCV084      *240321*2317*^*00501*441887323*0*T*:~
-  GS*HB*SYNSUB448*SYNRCV084*20240321*2317*83976*X*005010X279A1~
-  ST*271*7813*005010X279A1~
-  HL*1**20*1~
-  NM1*PR*2*PLACEHOLDER BENEFIT ADMIN*****PI*SYN99074~
-  HL*2*1*21*1~
-  NM1*1P*2*MOCK CARE ASSOCIATES*****XX*5462419363~
-  HL*3*2*22*0~
-  TRN*2*ELIG2231032098~
-  NM1*IL*1*Nonesuch*Sampleton****MI*MBR81711168~
-  N3*7330 Example Boulevard~
-  N4*Mockhaven*NJ*00000~
-  DMG*D8*19521221*M~
-  REF*6P*GRP46142~
-  DTP*307*D8*20240321~
-  EB*1*IND*98^35****717.00*80****Y~
-  SE*15*7813~
-  GE*1*83976~
-  IEA*1*441887323~
+Synthetic 271 from @cosyte/synth (seed 42), segments:
+  ISA GS ST BHT HL NM1 HL NM1 HL TRN NM1 N3 N4 DMG REF DTP EB SE GE IEA
 
-Payer (information source): PLACEHOLDER BENEFIT ADMIN, PI SYN99074
-Provider (information receiver): MOCK CARE ASSOCIATES, XX 5462419363
-Subscriber: Nonesuch, Sampleton
-  member ID        MBR81711168 (MI)
-  date of birth    1952-12-21
-  sex              M
-  group number     GRP46142 (REF 6P)
+Payer (information source): PLACEHOLDER BENEFIT ADMIN, ID qualifier PI
+Provider (information receiver): MOCK CARE ASSOCIATES, ID qualifier XX
+Subscriber: name present
+  member ID        present (MI)
+  date of birth    a day (DMG D8)
+  group number     present (REF 6P)
   plan             not stated
-  eligibility      2024-03-21 (DTP 307)
-  270 trace        ELIG2231032098 (TRN-02, echoed from the inquiry)
+  eligibility      a day (DTP 307)
+  270 traces       1 (TRN-02, echoed from the inquiry)
 
 Benefits (EB):
   1 Active Coverage, coverage level IND, in network Y
@@ -111,27 +98,12 @@ Cost sharing (co-insurance, co-payment, deductible, out of pocket): none stated
 Inquiry rejections (AAA segments): 0
 
 The 270 inquiry this 271 answers, built with build270 (@cosyte/synth writes no 270):
-  ISA*00*          *00*          *ZZ*SYNRCV084      *ZZ*SYNSUB448      *240321*2317*^*00501*000000001*0*T*:~
-  GS*HS*SYNRCV084*SYNSUB448*20240321*2317*1*X*005010X279A1~
-  ST*270*0001*005010X279A1~
-  BHT*0022*13*SYNTHREQ0001*20240321*2317~
-  HL*1**20*1~
-  NM1*PR*2*PLACEHOLDER BENEFIT ADMIN*****PI*SYN99074~
-  HL*2*1*21*1~
-  NM1*1P*2*MOCK CARE ASSOCIATES*****XX*5462419363~
-  HL*3*2*22*0~
-  TRN*1*ELIG2231032098*9SYNTHETIC~
-  NM1*IL*1*Nonesuch*Sampleton****MI*MBR81711168~
-  DMG*D8*19521221*M~
-  EQ*30~
-  SE*12*0001~
-  GE*1*1~
-  IEA*1*000000001~
-  to               PLACEHOLDER BENEFIT ADMIN, PI SYN99074
-  from             MOCK CARE ASSOCIATES, XX 5462419363
-  about            Nonesuch, Sampleton, MI MBR81711168
+  ISA GS ST BHT HL NM1 HL NM1 HL TRN NM1 DMG EQ SE GE IEA
+  to               PLACEHOLDER BENEFIT ADMIN, ID qualifier PI
+  from             MOCK CARE ASSOCIATES, ID qualifier XX
+  about            a person, name not printed, ID qualifier MI
   asks for         30 Health Benefit Plan Coverage
-  trace            ELIG2231032098 (TRN-02), originator 9SYNTHETIC (TRN-03)
+  trace            TRN-02 present, originator 9SYNTHETIC (TRN-03)
   The 271 echoes this trace, so it answers this 270.
 
 Warnings (parse, 271 and 270 readers): 0
@@ -441,7 +413,6 @@ import {
   DATE_QUALIFIERS,
   describeRejection,
   describeSubscriber,
-  formatDate,
   inquiryFor,
   label,
   readEligibility,
@@ -455,13 +426,42 @@ const wire = syntheticEligibilityResponse(SEED);
 const { interchange, eligibility } = readEligibility(wire);
 const terminator = interchange.delimiters.segment;
 
-console.log(`Synthetic 271 from @cosyte/synth (seed ${SEED}):`);
-for (const segment of wire.split(terminator).filter(Boolean)) console.log(`  ${segment}${terminator}`);
+// Nothing below prints a value that identifies a person, synthetic or not: an example that logs a
+// member's name teaches a pipeline to log one. It prints segment IDs, codes, counts, amounts and the
+// precision of each date. To see what a field holds, read it into a variable or assert on it.
+/**
+ * The segment IDs of an interchange, in order: never a segment's elements.
+ *
+ * @param {string} text
+ * @param {string} end the segment terminator
+ */
+const segmentIds = (text, end) =>
+  text
+    .split(end)
+    .filter((segment) => segment.trim() !== "")
+    .map((segment) => segment.trim().split("*")[0]);
+console.log(`Synthetic 271 from @cosyte/synth (seed ${SEED}), segments:`);
+console.log(`  ${segmentIds(wire, terminator).join(" ")}`);
 
-/** @param {import("@cosyte/x12").X12EligibilityEntity | undefined} entity */
+/**
+ * A payer or a provider. An organization (NM1-02 "2") is named; a person (NM1-02 "1") is not.
+ *
+ * @param {import("@cosyte/x12").X12EligibilityEntity | undefined} entity
+ */
 function party(entity) {
   if (entity === undefined) return "not stated";
-  return entity.idCode ? `${entity.name}, ${entity.idQualifier} ${entity.idCode}` : entity.name;
+  const who = entity.entityTypeQualifier === "2" ? entity.name : "a person, name not printed";
+  return entity.idCode ? `${who}, ID qualifier ${entity.idQualifier}` : who;
+}
+
+/**
+ * The precision of a date, never the date: D8 is a day, RD8 a range of days.
+ *
+ * @param {{ formatQualifier: string }} date
+ */
+function precision(date) {
+  if (date.formatQualifier === "RD8") return "a range of days";
+  return date.formatQualifier === "D8" ? "a day" : `format ${date.formatQualifier}`;
 }
 
 /**
@@ -481,23 +481,25 @@ for (const subscriber of eligibility.subscribers) {
 
   console.log(`\nPayer (information source): ${party(facts.payer)}`);
   console.log(`Provider (information receiver): ${party(facts.provider)}`);
-  console.log(`Subscriber: ${facts.name}`);
+  // The subscriber's own values are read, never printed. The values in these comments are synthetic.
+  const subscriberName = facts.name; // "Nonesuch, Sampleton", synthetic
+  const memberId = facts.memberId; // "MBR81711168", synthetic
+  const dateOfBirth = facts.dateOfBirth; // "19521221", synthetic
+  const groupNumber = facts.group.number; // "GRP46142", synthetic
+  console.log(`Subscriber: name ${subscriberName ? "present" : "not stated"}`);
 
   /** @type {Array<[string, string | undefined]>} */
   const rows = [
-    ["member ID", facts.memberId ? `${facts.memberId} (${facts.memberIdQualifier})` : "not stated"],
-    ["date of birth", facts.dateOfBirth && formatDate({ formatQualifier: "D8", value: facts.dateOfBirth })],
-    ["sex", facts.sex],
-    ["group number", facts.group.number ? `${facts.group.number} (REF 6P)` : "not stated"],
-    ["group name", facts.group.name],
-    ["plan", [facts.plan.number, facts.plan.name].filter(Boolean).join(", ") || "not stated"],
+    ["member ID", memberId ? `present (${facts.memberIdQualifier})` : "not stated"],
+    ["date of birth", dateOfBirth ? "a day (DMG D8)" : "not stated"],
+    ["group number", groupNumber ? "present (REF 6P)" : "not stated"],
+    ["plan", facts.plan.number || facts.plan.name ? "present" : "not stated"],
   ];
   for (const date of facts.dates) {
     const name = label(DATE_QUALIFIERS, date.qualifier) ?? "date";
-    rows.push([name, `${formatDate(date)} (DTP ${date.qualifier})`]);
+    rows.push([name, `${precision(date)} (DTP ${date.qualifier})`]);
   }
-  const traces = facts.traces.join(", ");
-  rows.push(["270 trace", traces ? `${traces} (TRN-02, echoed from the inquiry)` : "none"]);
+  rows.push(["270 traces", `${facts.traces.length} (TRN-02, echoed from the inquiry)`]);
   printRows("  ", rows);
 
   console.log(`\nBenefits (EB):${facts.benefits.length === 0 ? " none" : ""}`);
@@ -539,11 +541,16 @@ for (const subscriber of eligibility.subscribers) {
 console.log(`\nInquiry rejections (AAA segments): ${eligibility.aaaConditions.length}`);
 for (const condition of eligibility.aaaConditions) console.log(`  ${describeRejection(condition)}`);
 
-/** @param {import("@cosyte/x12").X12InquiryName | undefined} name */
-function inquiryParty(name) {
-  if (name === undefined) return "not stated";
-  const who = [name.lastNameOrOrganizationName, name.firstName].filter(Boolean).join(", ");
-  return name.idCode ? `${who}, ${name.idQualifier} ${name.idCode}` : who;
+/**
+ * A party of the inquiry. An organization (NM1-02 "2") is named; a person (NM1-02 "1") is not.
+ *
+ * @param {import("@cosyte/x12").X12InquiryName | undefined} party
+ */
+function inquiryParty(party) {
+  if (party === undefined) return "not stated";
+  const organization = party.entityTypeQualifier === "2";
+  const who = organization ? party.lastNameOrOrganizationName : "a person, name not printed";
+  return party.idCode ? `${who}, ID qualifier ${party.idQualifier}` : who;
 }
 
 // The question the 271 answers. @cosyte/synth writes no 270, so src/eligibility.js builds one with
@@ -556,8 +563,7 @@ if (answered !== undefined) {
   warnings.push(...sent.warnings, ...inquiry.warnings);
 
   console.log("\nThe 270 inquiry this 271 answers, built with build270 (@cosyte/synth writes no 270):");
-  const end = sent.delimiters.segment;
-  for (const segment of request.split(end).filter(Boolean)) console.log(`  ${segment}${end}`);
+  console.log(`  ${segmentIds(request, sent.delimiters.segment).join(" ")}`);
   const source = inquiry.informationSources[0];
   const receiver = source?.receivers[0];
   const subscriber = receiver?.subscribers[0];
@@ -571,7 +577,7 @@ if (answered !== undefined) {
     ["from", inquiryParty(receiver?.name)],
     ["about", inquiryParty(subscriber?.name)],
     ["asks for", services.join("; ")],
-    ["trace", trace && `${trace.referenceId} (TRN-02), originator ${originator} (TRN-03)`],
+    ["trace", trace && `TRN-02 present, originator ${originator} (TRN-03)`],
   ]);
   // Match the answer to the question: the 271 echoes the 270's TRN-02 on the subscriber it answers.
   const echoed = answered.traces.some((echo) => echo.referenceId === trace?.referenceId);

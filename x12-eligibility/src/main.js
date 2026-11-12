@@ -3,7 +3,6 @@ import {
   DATE_QUALIFIERS,
   describeRejection,
   describeSubscriber,
-  formatDate,
   inquiryFor,
   label,
   readEligibility,
@@ -17,13 +16,42 @@ const wire = syntheticEligibilityResponse(SEED);
 const { interchange, eligibility } = readEligibility(wire);
 const terminator = interchange.delimiters.segment;
 
-console.log(`Synthetic 271 from @cosyte/synth (seed ${SEED}):`);
-for (const segment of wire.split(terminator).filter(Boolean)) console.log(`  ${segment}${terminator}`);
+// Nothing below prints a value that identifies a person, synthetic or not: an example that logs a
+// member's name teaches a pipeline to log one. It prints segment IDs, codes, counts, amounts and the
+// precision of each date. To see what a field holds, read it into a variable or assert on it.
+/**
+ * The segment IDs of an interchange, in order: never a segment's elements.
+ *
+ * @param {string} text
+ * @param {string} end the segment terminator
+ */
+const segmentIds = (text, end) =>
+  text
+    .split(end)
+    .filter((segment) => segment.trim() !== "")
+    .map((segment) => segment.trim().split("*")[0]);
+console.log(`Synthetic 271 from @cosyte/synth (seed ${SEED}), segments:`);
+console.log(`  ${segmentIds(wire, terminator).join(" ")}`);
 
-/** @param {import("@cosyte/x12").X12EligibilityEntity | undefined} entity */
+/**
+ * A payer or a provider. An organization (NM1-02 "2") is named; a person (NM1-02 "1") is not.
+ *
+ * @param {import("@cosyte/x12").X12EligibilityEntity | undefined} entity
+ */
 function party(entity) {
   if (entity === undefined) return "not stated";
-  return entity.idCode ? `${entity.name}, ${entity.idQualifier} ${entity.idCode}` : entity.name;
+  const who = entity.entityTypeQualifier === "2" ? entity.name : "a person, name not printed";
+  return entity.idCode ? `${who}, ID qualifier ${entity.idQualifier}` : who;
+}
+
+/**
+ * The precision of a date, never the date: D8 is a day, RD8 a range of days.
+ *
+ * @param {{ formatQualifier: string }} date
+ */
+function precision(date) {
+  if (date.formatQualifier === "RD8") return "a range of days";
+  return date.formatQualifier === "D8" ? "a day" : `format ${date.formatQualifier}`;
 }
 
 /**
@@ -43,23 +71,25 @@ for (const subscriber of eligibility.subscribers) {
 
   console.log(`\nPayer (information source): ${party(facts.payer)}`);
   console.log(`Provider (information receiver): ${party(facts.provider)}`);
-  console.log(`Subscriber: ${facts.name}`);
+  // The subscriber's own values are read, never printed. The values in these comments are synthetic.
+  const subscriberName = facts.name; // "Nonesuch, Sampleton", synthetic
+  const memberId = facts.memberId; // "MBR81711168", synthetic
+  const dateOfBirth = facts.dateOfBirth; // "19521221", synthetic
+  const groupNumber = facts.group.number; // "GRP46142", synthetic
+  console.log(`Subscriber: name ${subscriberName ? "present" : "not stated"}`);
 
   /** @type {Array<[string, string | undefined]>} */
   const rows = [
-    ["member ID", facts.memberId ? `${facts.memberId} (${facts.memberIdQualifier})` : "not stated"],
-    ["date of birth", facts.dateOfBirth && formatDate({ formatQualifier: "D8", value: facts.dateOfBirth })],
-    ["sex", facts.sex],
-    ["group number", facts.group.number ? `${facts.group.number} (REF 6P)` : "not stated"],
-    ["group name", facts.group.name],
-    ["plan", [facts.plan.number, facts.plan.name].filter(Boolean).join(", ") || "not stated"],
+    ["member ID", memberId ? `present (${facts.memberIdQualifier})` : "not stated"],
+    ["date of birth", dateOfBirth ? "a day (DMG D8)" : "not stated"],
+    ["group number", groupNumber ? "present (REF 6P)" : "not stated"],
+    ["plan", facts.plan.number || facts.plan.name ? "present" : "not stated"],
   ];
   for (const date of facts.dates) {
     const name = label(DATE_QUALIFIERS, date.qualifier) ?? "date";
-    rows.push([name, `${formatDate(date)} (DTP ${date.qualifier})`]);
+    rows.push([name, `${precision(date)} (DTP ${date.qualifier})`]);
   }
-  const traces = facts.traces.join(", ");
-  rows.push(["270 trace", traces ? `${traces} (TRN-02, echoed from the inquiry)` : "none"]);
+  rows.push(["270 traces", `${facts.traces.length} (TRN-02, echoed from the inquiry)`]);
   printRows("  ", rows);
 
   console.log(`\nBenefits (EB):${facts.benefits.length === 0 ? " none" : ""}`);
@@ -101,11 +131,16 @@ for (const subscriber of eligibility.subscribers) {
 console.log(`\nInquiry rejections (AAA segments): ${eligibility.aaaConditions.length}`);
 for (const condition of eligibility.aaaConditions) console.log(`  ${describeRejection(condition)}`);
 
-/** @param {import("@cosyte/x12").X12InquiryName | undefined} name */
-function inquiryParty(name) {
-  if (name === undefined) return "not stated";
-  const who = [name.lastNameOrOrganizationName, name.firstName].filter(Boolean).join(", ");
-  return name.idCode ? `${who}, ${name.idQualifier} ${name.idCode}` : who;
+/**
+ * A party of the inquiry. An organization (NM1-02 "2") is named; a person (NM1-02 "1") is not.
+ *
+ * @param {import("@cosyte/x12").X12InquiryName | undefined} party
+ */
+function inquiryParty(party) {
+  if (party === undefined) return "not stated";
+  const organization = party.entityTypeQualifier === "2";
+  const who = organization ? party.lastNameOrOrganizationName : "a person, name not printed";
+  return party.idCode ? `${who}, ID qualifier ${party.idQualifier}` : who;
 }
 
 // The question the 271 answers. @cosyte/synth writes no 270, so src/eligibility.js builds one with
@@ -118,8 +153,7 @@ if (answered !== undefined) {
   warnings.push(...sent.warnings, ...inquiry.warnings);
 
   console.log("\nThe 270 inquiry this 271 answers, built with build270 (@cosyte/synth writes no 270):");
-  const end = sent.delimiters.segment;
-  for (const segment of request.split(end).filter(Boolean)) console.log(`  ${segment}${end}`);
+  console.log(`  ${segmentIds(request, sent.delimiters.segment).join(" ")}`);
   const source = inquiry.informationSources[0];
   const receiver = source?.receivers[0];
   const subscriber = receiver?.subscribers[0];
@@ -133,7 +167,7 @@ if (answered !== undefined) {
     ["from", inquiryParty(receiver?.name)],
     ["about", inquiryParty(subscriber?.name)],
     ["asks for", services.join("; ")],
-    ["trace", trace && `${trace.referenceId} (TRN-02), originator ${originator} (TRN-03)`],
+    ["trace", trace && `TRN-02 present, originator ${originator} (TRN-03)`],
   ]);
   // Match the answer to the question: the 271 echoes the 270's TRN-02 on the subscriber it answers.
   const echoed = answered.traces.some((echo) => echo.referenceId === trace?.referenceId);

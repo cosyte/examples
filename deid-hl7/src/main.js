@@ -6,11 +6,37 @@ const SEED = 12345;
 const wire = syntheticAdmit(SEED);
 const { input, output, manifest, residuals } = deidentifyMessage(wire);
 
-console.log(`Synthetic ADT^A01 from @cosyte/synth (seed ${SEED}):`);
-for (const segment of wire.split("\r").filter(Boolean)) console.log(`  ${segment}`);
+// Nothing below prints a value from the message, synthetic or not: an example that logs a patient's
+// name teaches a pipeline to log one. It prints segment names, counts, date precision and codes.
+/** @param {string} text */
+const segmentsOf = (text) => text.split("\r").filter(Boolean);
+/** @param {string} segment The fields of a segment that hold anything: a count, never a value. */
+const filled = (segment) => segment.split("|").slice(1).filter((field) => field !== "").length;
 
-console.log("\nDe-identified (Safe Harbor policy):");
-for (const segment of output.toString().split("\r").filter(Boolean)) console.log(`  ${segment}`);
+const before = segmentsOf(wire);
+const after = segmentsOf(output.toString());
+console.log(`Synthetic ADT^A01 from @cosyte/synth (seed ${SEED}), ${before.length} segments.`);
+console.log("\nFields holding a value, per segment, before and after (Safe Harbor policy):");
+before.forEach((segment, i) => {
+  console.log(`  ${segment.slice(0, 3)}  ${String(filled(segment)).padStart(2)} -> ${filled(after[i] ?? "")}`);
+});
+
+// To see what a field holds, read it into a variable or assert on it. The values in these comments
+// are synthetic, from @cosyte/synth.
+const birthDateIn = input.get("PID.7"); // "19610809", synthetic
+const birthDateOut = output.get("PID.7"); // "1961", synthetic
+/** @param {string | undefined} value An HL7 v2 date or timestamp, named by its precision only. */
+const precision = (value) => {
+  if (!value) return "empty";
+  if (value.length <= 4) return "year";
+  if (value.length <= 6) return "month";
+  return value.length <= 8 ? "day" : "time";
+};
+console.log("\nDate precision, before and after:");
+console.log(`  PID-7  ${precision(birthDateIn)} -> ${precision(birthDateOut)}`);
+for (const path of ["MSH.7", "EVN.2"]) {
+  console.log(`  ${path.replace(".", "-")}  ${precision(input.get(path))} -> ${precision(output.get(path))}`);
+}
 
 console.log("\nManifest (value-free: locus, category, transform, disposition, code):");
 for (const entry of manifest) {

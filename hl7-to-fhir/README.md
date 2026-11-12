@@ -2,7 +2,11 @@
 
 Convert a synthetic HL7 v2 admit message (ADT^A01) into a FHIR R4 message Bundle with
 [`@cosyte/transform`](https://github.com/cosyte/transform), then validate the Bundle and every
-resource in it with [`@cosyte/fhir`](https://github.com/cosyte/fhir).
+resource in it with [`@cosyte/fhir`](https://github.com/cosyte/fhir). It prints no value that
+identifies the patient: for the Patient it prints how many of each element the transform wrote, the
+identifier's type and system, and the precision of the birth date. `src/main.js` reads the family
+name, the record number and the birth date into variables, with their synthetic values in comments,
+to show what each holds.
 
 Libraries: [`@cosyte/transform`](https://github.com/cosyte/transform),
 [`@cosyte/fhir`](https://github.com/cosyte/fhir), [`@cosyte/hl7`](https://github.com/cosyte/hl7),
@@ -21,23 +25,19 @@ they are listed in `package.json` beside it.
 ## Expected output
 
 ```text
-Synthetic ADT^A01 from @cosyte/synth (seed 12345):
-  MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|20220305042943||ADT^A01|SYNTH4722901508|T|2.5
-  EVN|A01|20220305042943
-  PID|1||26068087^^^COSYTE-SYNTH^MR||Quillfeather^Fixtura||19610809|M|||7117 Sample Street^^Synthville^MN^00000||(528) 555-0105||||||969217321
-  PV1|1|E|SYNTHWARD^909^01
+Synthetic ADT^A01 from @cosyte/synth (seed 12345), segments MSH EVN PID PV1
 
-FHIR R4 Bundle from @cosyte/transform (type message, identifier SYNTH4722901508):
+FHIR R4 Bundle from @cosyte/transform (type message, 3 entries):
   MessageHeader  urn:uuid:00000000-0000-4000-8000-000000000003
   Patient        urn:uuid:00000000-0000-4000-8000-000000000001
   Encounter      urn:uuid:00000000-0000-4000-8000-000000000002
 
 Patient (from PID):
-  name        family Quillfeather, given Fixtura
-  identifier  26068087, type MR, system https://example.org/fhir/sid/synthetic-mrn
-  gender      male
-  birthDate   1961-08-09
-  address     line 7117 Sample Street, city Synthville, state MN, postalCode 00000
+  elements    name 1, identifier 1, telecom 0, address 1
+  family      present
+  MRN         8 characters
+  identifier  type MR, system https://example.org/fhir/sid/synthetic-mrn
+  birthDate   precision day
 
 Encounter (from PV1):
   class       EMER (emergency)
@@ -67,7 +67,8 @@ Validation with @cosyte/fhir (strict mode, starter-kit profiles):
 npm test
 ```
 
-The test runs `src/main.js` and checks the Patient name and the validation total. For four seeds
+The test runs `src/main.js` and checks the Patient lines and the validation total, and that the
+output holds no value from `PID` and no segment of the message. For four seeds
 that cover patient classes E, O, and I, and both sexes, it then converts the admit in process and
 checks the Bundle against the parsed HL7 input: the Patient's name, identifier, gender, birth date,
 and address come from `PID`, the Encounter's class comes from `PV1-2` through the guide's map, its
@@ -152,8 +153,8 @@ on synthetic data.
    checks it. Strict mode makes an element the schema does not define an error. `STARTER_PROFILES`
    adds the starter-kit profiles: the Patient one requires `identifier.system` and
    `identifier.value`.
-5. The printed values are read from the FHIR model with `resolvePath`, so each one is what the
-   transform wrote. `serializeResource(bundle)` from `@cosyte/fhir` gives you the Bundle as FHIR JSON.
+5. The printed codes and counts are read from the FHIR model with `resolvePath`, so each one is
+   what the transform wrote. `serializeResource(bundle)` from `@cosyte/fhir` gives you the Bundle as FHIR JSON.
 
 The code is in [`src/convert.js`](src/convert.js) and [`src/main.js`](src/main.js).
 

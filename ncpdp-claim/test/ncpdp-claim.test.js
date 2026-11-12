@@ -17,7 +17,7 @@ test("npm start prints the claim facts and a paid response that echoes the claim
   const { stdout } = await run(process.execPath, ["src/main.js"], { cwd: starterDir });
   const b1 = claim(parseTelecom(syntheticClaim(1)));
   const product = `${b1?.product?.id} \\(qualifier ${b1?.product?.qualifier}\\)`;
-  const echoes = `B1, pharmacy \\d+, prescription ${b1?.prescriptionReferenceNumber}`;
+  const echoes = "B1, pharmacy \\d+, prescription number matches the claim";
 
   assert.match(stdout, /^Claim: synthetic B1 from @cosyte\/synth \(seed 1\)/);
   assert.match(stdout, new RegExp(`^  Product/service ID\\s+${product}$`, "m"));
@@ -25,6 +25,27 @@ test("npm start prints the claim facts and a paid response that echoes the claim
   assert.match(stdout, /^  Claim status\s+P, disposition paid$/m);
   assert.match(stdout, /^  Reject codes\s+none$/m);
   assert.equal(stdout.match(/^  Parse warnings\s+0$/gm)?.length, 2);
+});
+
+test("npm start prints no value that identifies the patient, and no line of the wire", async () => {
+  const { stdout } = await run(process.execPath, ["src/main.js"], { cwd: starterDir });
+  const request = parseTelecom(syntheticClaim(1));
+  const patient = findSegment(request.segments, "01");
+  const insurance = findSegment(request.segments, "04");
+  // 01: CA first name, CB last name, C4 date of birth; 04: C1 group ID, C2 cardholder ID; 07: D2 the
+  // prescription number; the header's date of service; and the response's authorization number.
+  const values = [
+    ...["CA", "CB", "C4"].map((id) => fieldValue(patient, id)),
+    ...["C1", "C2"].map((id) => fieldValue(insurance, id)),
+    claim(request)?.prescriptionReferenceNumber,
+    request.header.dateOfService,
+    adjudication(parseTelecom(syntheticResponse(request)))?.status?.authorizationNumber,
+  ];
+
+  for (const value of values) {
+    assert.ok(value && !stdout.includes(value), "npm start printed a value that identifies the patient");
+  }
+  assert.doesNotMatch(stdout, /<FS>|<RS>|<GS>/, "npm start printed the wire");
 });
 
 test("the claim view reads the fields the synthetic B1 carries, and the added Pricing segment", () => {

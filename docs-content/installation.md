@@ -36,6 +36,14 @@ npm ci
 `npm ci` installs exactly the versions in the starter's committed `package-lock.json`, the ones CI
 tested. `npm install` works too, and may move a package within the range its `package.json` allows.
 
+Those ranges are carets, such as `^0.1.0`, and every `@cosyte/*` library is below 1.0. Below 1.0 a
+breaking change can ship in a patch release, so a caret range does not protect you. When you take a
+starter into your own project, pin each library to an exact version:
+
+```bash
+npm install --save-exact @cosyte/hl7@0.1.8
+```
+
 Each starter sets its own `@cosyte/*` versions in its `package.json`, so two starters can be on
 different releases of a library. To move one to a newer release, see
 [Update the libraries in a starter](./update-the-libraries.md).

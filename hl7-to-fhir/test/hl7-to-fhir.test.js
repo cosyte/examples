@@ -31,14 +31,29 @@ const SEEDS = [12345, 1, 7, 42];
 
 test("npm start prints the Patient, the Encounter and zero validation errors", async () => {
   const { stdout } = await run(process.execPath, ["src/main.js"], { cwd: starterDir });
-  const patient = parseHL7(syntheticAdmit(12345)).patient;
 
-  assert.match(
-    stdout,
-    new RegExp(`^  name {8}family ${patient?.familyName}, given ${patient?.givenName}$`, "m"),
-  );
+  assert.match(stdout, /^ {2}elements {4}name 1, identifier 1, telecom 0, address 1$/m);
+  assert.match(stdout, /^ {2}identifier {2}type MR, system https:\/\/example\.org\/fhir\/sid\/synthetic-mrn$/m);
+  assert.match(stdout, /^ {2}birthDate {3}precision day$/m);
   assert.match(stdout, /^ {2}Patient {8}errors 0, warnings 0/m);
   assert.match(stdout, /^ {2}Total {10}0 fatal, 0 errors, /m);
+});
+
+test("npm start prints no value from PID and no segment of the message", async () => {
+  const { stdout } = await run(process.execPath, ["src/main.js"], { cwd: starterDir });
+  const wire = syntheticAdmit(12345);
+  const message = parseHL7(wire);
+  const paths = ["PID.3.1", "PID.5.1", "PID.5.2", "PID.7", "PID.11.1", "PID.11.3", "PID.13", "PID.19"];
+  const values = paths.map((path) => message.get(path)).filter((value) => typeof value === "string" && value !== "");
+
+  assert.ok(values.length >= 7, `expected the synthetic PID to carry identifiers, got ${values.length}`);
+  for (const value of values) assert.ok(!stdout.includes(value), "npm start printed a value from PID");
+  const birthDate = message.get("PID.7") ?? "";
+  const isoBirthDate = `${birthDate.slice(0, 4)}-${birthDate.slice(4, 6)}-${birthDate.slice(6, 8)}`;
+  assert.ok(!stdout.includes(isoBirthDate), "npm start printed the birth date");
+  for (const segment of wire.split("\r").filter(Boolean)) {
+    assert.ok(!stdout.includes(segment), `npm start printed a whole ${segment.slice(0, 3)} segment`);
+  }
 });
 
 for (const seed of SEEDS) {

@@ -8,7 +8,9 @@ description: "DICOM Part 10 metadata read from a synthetic file, then the header
 # Read DICOM metadata and de-identify the header
 
 The `dicom-metadata` starter reads the patient, study and series metadata of a synthetic DICOM Part
-10 file, then de-identifies the header and prints the value-free manifest of what it changed.
+10 file, then de-identifies the header and prints the value-free manifest of what it changed. It
+prints no value that identifies a person, before or after: the transfer syntax, SOP class and
+modality are codes, and every other attribute prints whether it is present, or its length.
 
 Libraries: [`@cosyte/dicom`](https://docs.cosyte.com/dicom/),
 [`@cosyte/deid`](https://docs.cosyte.com/deid/).
@@ -27,6 +29,9 @@ Libraries: [`@cosyte/dicom`](https://docs.cosyte.com/dicom/),
   agree from file to file. The map links the output back to the source: keep it private.
 - **A check you can keep.** `src/main.js` searches the written bytes and the manifest for every
   identifying value read from the input, and exits 1 if one is found.
+- **Reading without printing.** `src/main.js` reads the patient's name, ID, birth date and accession
+  number into variables, with their synthetic values in comments, and the de-identified header
+  prints a value only for an allowlist of coded attributes.
 
 ## Run it
 
@@ -41,8 +46,9 @@ npm start
 The synthetic file is built in memory on every run; nothing is written to disk. The output is the
 same on every run.
 
-`npm test` runs the starter and checks the metadata lines against the values parsed from the
-synthetic file. It de-identifies the header in process and checks that no identifying value from the
+`npm test` runs the starter and checks the coded metadata lines against the values parsed from the
+synthetic file, and that the output holds no identifying value from the input and none of the
+replacement UIDs. It de-identifies the header in process and checks that no identifying value from the
 input appears in the written file or in the manifest, that each UID is replaced and recorded in the
 shared map, that the pass records itself as text and as a code, and that the data set is written in
 ascending tag order.
@@ -67,21 +73,20 @@ What `npm start` prints, as the starter's README gives it. This section and the 
 Synthetic CT header (804 bytes of DICOM Part 10, built in memory):
   Transfer syntax      1.2.840.10008.1.2.1 (Explicit VR Little Endian)
   SOP class            1.2.840.10008.5.1.4.1.1.2 (CT Image Storage)
-  SOP instance UID     2.25.180278240445437908828124246322305359710
-  Patient name         ZZTEST^SYNTHETIC
-  Patient ID           ZZTEST-0001 (issuer EXAMPLE.ORG)
-  Birth date           1970-01-01
-  Sex                  O
-  Study instance UID   2.25.10155276760012127015659500753591548111
-  Study date           2020-01-02
-  Accession number     ZZACC0001
   Modality             CT
-  Series instance UID  2.25.91500837647300718321059351149439276398
   Parse warnings       none
+  Patient name         present
+  Patient ID           present
+  Birth date           present
+  Study date           present
+  Accession number     present
+  Study instance UID   present
+  Series instance UID  present
+  SOP instance UID     present
 
 De-identified header (962 bytes, read back from the written file):
   (0008,0016) SOPClassUID                              1.2.840.10008.5.1.4.1.1.2
-  (0008,0018) SOPInstanceUID                           2.25.86704070274506178779869117891871399775162034538788250112726
+  (0008,0018) SOPInstanceUID                           (64 characters)
   (0008,0020) StudyDate                                (empty)
   (0008,0030) StudyTime                                (empty)
   (0008,0050) AccessionNumber                          (empty)
@@ -92,13 +97,13 @@ De-identified header (962 bytes, read back from the written file):
   (0010,0030) PatientBirthDate                         (empty)
   (0010,0040) PatientSex                               (empty)
   (0012,0062) PatientIdentityRemoved                   YES
-  (0012,0063) DeidentificationMethod                   Cosyte @cosyte/deid, PS3.15 Basic Application Level Confidentiality Profile (metadata only); policy "safe-harbor"
+  (0012,0063) DeidentificationMethod                   (113 characters)
   (0012,0064) DeidentificationMethodCodeSequence       (sequence, 1 item)
-  (0020,000D) StudyInstanceUID                         2.25.27220899364256410842694272346482303969957183573538923698291
-  (0020,000E) SeriesInstanceUID                        2.25.76808116996479560595985857159634965361995450169669996222346
+  (0020,000D) StudyInstanceUID                         (64 characters)
+  (0020,000E) SeriesInstanceUID                        (64 characters)
   (0020,0010) StudyID                                  (empty)
-  (0020,0011) SeriesNumber                             1
-  (0020,0013) InstanceNumber                           1
+  (0020,0011) SeriesNumber                             (1 character)
+  (0020,0013) InstanceNumber                           (1 character)
   (0028,0303) LongitudinalTemporalInformationModified  REMOVED
 
 Manifest (value-free: locus, category, transform, disposition, code):
@@ -308,23 +313,33 @@ import { syntheticCtHeader } from "./part10.js";
 const part10 = syntheticCtHeader();
 const input = parseDicom(part10);
 
+// Nothing below prints a value that identifies a person, synthetic or not: an example that logs a
+// patient's name teaches a pipeline to log one. To see what an attribute holds, read it into a
+// variable or assert on it. The values in these comments are synthetic.
 const metadata = readMetadata(input);
+const patientName = metadata.patientName; // "ZZTEST^SYNTHETIC", synthetic
+const patientId = metadata.patientId; // "ZZTEST-0001 (issuer EXAMPLE.ORG)", synthetic
+const birthDate = metadata.birthDate; // "1970-01-01", synthetic
+const accessionNumber = metadata.accessionNumber; // "ZZACC0001", synthetic
+
+/** @param {string | undefined} value Whether an attribute holds a value: never the value itself. */
+const present = (value) => (value === undefined || value === "" ? "absent" : "present");
+
 console.log(`Synthetic CT header (${part10.length} bytes of DICOM Part 10, built in memory):`);
 /** @type {[string, string | undefined][]} */
 const rows = [
   ["Transfer syntax", metadata.transferSyntax],
   ["SOP class", metadata.sopClass],
-  ["SOP instance UID", metadata.sopInstanceUid],
-  ["Patient name", metadata.patientName],
-  ["Patient ID", metadata.patientId],
-  ["Birth date", metadata.birthDate],
-  ["Sex", metadata.sex],
-  ["Study instance UID", metadata.studyInstanceUid],
-  ["Study date", metadata.studyDate],
-  ["Accession number", metadata.accessionNumber],
   ["Modality", metadata.modality],
-  ["Series instance UID", metadata.seriesInstanceUid],
   ["Parse warnings", input.warnings.map((w) => w.code).join(", ") || "none"],
+  ["Patient name", present(patientName)],
+  ["Patient ID", present(patientId)],
+  ["Birth date", present(birthDate)],
+  ["Study date", present(metadata.studyDate)],
+  ["Accession number", present(accessionNumber)],
+  ["Study instance UID", present(metadata.studyInstanceUid)],
+  ["Series instance UID", present(metadata.seriesInstanceUid)],
+  ["SOP instance UID", present(metadata.sopInstanceUid)],
 ];
 for (const [label, value] of rows) console.log(`  ${label.padEnd(20)} ${value ?? "(absent)"}`);
 
@@ -332,15 +347,22 @@ for (const [label, value] of rows) console.log(`  ${label.padEnd(20)} ${value ??
 const uidMap = new Map();
 const { bytes, output, manifest, warnings, burnedInAnnotationHazard } = deidentifyHeader(input, uidMap);
 
+// The de-identified header prints a value only for the coded attributes below, which name a kind of
+// object or what the pass did. Every other attribute prints its shape: empty, a sequence, or a length.
+const CODED = new Set(["SOPClassUID", "Modality", "PatientIdentityRemoved", "LongitudinalTemporalInformationModified"]);
 console.log(`\nDe-identified header (${bytes.length} bytes, read back from the written file):`);
-const header = output.elements().map((element) => ({
-  tag: `(${element.tag.slice(0, 4)},${element.tag.slice(4)})`,
-  keyword: Dictionary.lookup(element.tag)?.keyword ?? "",
-  value: displayValue(element),
-}));
+const header = output.elements().map((element) => {
+  const keyword = Dictionary.lookup(element.tag)?.keyword ?? "";
+  const text = displayValue(element);
+  const kind = element.value.kind;
+  const length = `(${text.length} character${text.length === 1 ? "" : "s"})`;
+  const shape = kind === "empty" || kind === "sequence" ? text : length;
+  const tag = `(${element.tag.slice(0, 4)},${element.tag.slice(4)})`;
+  return { tag, keyword, shown: CODED.has(keyword) ? text : shape };
+});
 const keywordWidth = Math.max(...header.map((row) => row.keyword.length));
-for (const { tag, keyword, value } of header) {
-  console.log(`  ${tag} ${keyword.padEnd(keywordWidth)}  ${value}`);
+for (const { tag, keyword, shown } of header) {
+  console.log(`  ${tag} ${keyword.padEnd(keywordWidth)}  ${shown}`);
 }
 
 console.log("\nManifest (value-free: locus, category, transform, disposition, code):");

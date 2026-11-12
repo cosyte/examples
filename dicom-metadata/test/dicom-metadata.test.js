@@ -17,12 +17,14 @@ const literal = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 test("npm start prints the metadata, the de-identified header and a clean check", async () => {
   const { stdout } = await run(process.execPath, ["src/main.js"], { cwd: starterDir });
   const metadata = readMetadata(parseDicom(syntheticCtHeader()));
-  const { transferSyntax, sopClass, patientName, studyInstanceUid } = metadata;
+  const { transferSyntax, sopClass, modality } = metadata;
 
-  // The metadata lines carry the values read from the synthetic file.
-  for (const value of [transferSyntax, sopClass, patientName, studyInstanceUid]) {
+  // The metadata lines carry the coded values read from the synthetic file, and only say whether
+  // each identifying attribute is present.
+  for (const value of [transferSyntax, sopClass, modality]) {
     assert.match(stdout, new RegExp(`^  .{20} ${literal(String(value))}$`, "m"));
   }
+  assert.match(stdout, /^ {2}Patient name {9}present$/m);
   // The de-identified header keeps the patient attributes empty and says it was de-identified.
   assert.match(stdout, /^ {2}\(0010,0010\) PatientName +\(empty\)$/m);
   assert.match(stdout, /^ {2}\(0012,0062\) PatientIdentityRemoved +YES$/m);
@@ -30,6 +32,17 @@ test("npm start prints the metadata, the de-identified header and a clean check"
   assert.match(stdout, /^ {2}\(0028,0303\) LongitudinalTemporalInformationModified +REMOVED$/m);
   assert.match(stdout, /Found in the de-identified file: 0/);
   assert.match(stdout, /Found in the manifest: 0/);
+});
+
+test("npm start prints no identifying value, from the input or the de-identified file", async () => {
+  const { stdout } = await run(process.execPath, ["src/main.js"], { cwd: starterDir });
+  const input = parseDicom(syntheticCtHeader());
+  const { output } = deidentifyHeader(input);
+  const remapped = [output.study.instanceUid, output.series.instanceUid, output.image.sopInstanceUid];
+
+  for (const value of [...identifyingValues(input), ...remapped]) {
+    assert.ok(value !== undefined && !stdout.includes(value), "npm start printed an identifying value");
+  }
 });
 
 test("the synthetic file parses without warnings, with UUID-derived UIDs", () => {

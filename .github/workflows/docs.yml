@@ -7,13 +7,14 @@ name: Docs
 #      files match the starter, and each page is in the sidebar and linked from the overview;
 #   2. the tests of the scripts under scripts/, with node's own test runner;
 #   3. the docs-content structure check from @cosyte/script-utils, at an exact version: the
-#      sidebar's shape, every page's front matter, the required pages, and the quality pages'
-#      "Current numbers" placeholders;
+#      sidebar's shape, every page's front matter, the required pages, the quality pages'
+#      "Current numbers" placeholders, and that no sample prints a value that identifies a person
+#      (the example-print rule, required by cosyte-docs-content.config.json);
 #   4. the release's two archives, built as release.yml builds them, and listed. Nothing is published.
 #
 # The structure check arrived in @cosyte/script-utils 0.1.9, after the 0.1.4 that no-emdash.yml and
-# claude-card.yml pin, so SCRIPT_UTILS here is pinned on its own, at the version the Terraform modules
-# use; release.yml holds the same pin. Move the two together.
+# claude-card.yml pin, so SCRIPT_UTILS here is pinned on its own, at 0.1.13, the first version with the
+# example-print rule; release.yml holds the same pin. Move the two together.
 #
 # There is no paths filter, so the `docs` check reports on every pull request and can be required.
 # The job id is the check name GitHub reports: rename it only together with the ruleset.
@@ -33,7 +34,7 @@ permissions:
   contents: read
 
 env:
-  SCRIPT_UTILS: "@cosyte/script-utils@0.1.12"
+  SCRIPT_UTILS: "@cosyte/script-utils@0.1.13"
 
 jobs:
   docs:

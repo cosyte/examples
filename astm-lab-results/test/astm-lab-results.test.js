@@ -32,6 +32,25 @@ test("npm start decodes every frame and prints one table row per result", async 
   assert.match(stdout, /^Record warnings: 0$/m);
 });
 
+test("npm start prints no patient value, no record and no comment text", async () => {
+  const { stdout } = await run(process.execPath, ["src/main.js"], { cwd: starterDir });
+  const { frames } = readUpload(syntheticUpload(SEED, RESULT_COUNT));
+  const records = frames.map(frameText);
+  const fieldsOf = (/** @type {string} */ type) =>
+    (records.find((record) => record.startsWith(`${type}|`)) ?? assert.fail(`no ${type} record`)).split("|");
+  const [patient, order, comment] = [fieldsOf("P"), fieldsOf("O"), fieldsOf("C")];
+  // P.3 practice ID, P.4 laboratory ID, P.6 name (a one-letter middle initial left out, since a
+  // letter appears in any output), P.8 birth date; O.3 specimen ID; C.4 comment text.
+  const name = patient[5].split("^").filter((part) => part.length > 1);
+  const values = [patient[2], patient[3], ...name, patient[7], order[2], comment[3]];
+
+  for (const value of values) {
+    assert.ok(value && !stdout.includes(value), "npm start printed a value from the patient's records");
+  }
+  for (const record of records) assert.ok(!stdout.includes(record), `npm start printed a whole ${record[0]} record`);
+  assert.match(stdout, /^ {2}Patient {7}practice ID and laboratory ID sent$/m);
+});
+
 test("the frame layer is transparent: framed and raw twins parse to the same results", () => {
   const { frames, frameWarnings, message } = readUpload(syntheticUpload(SEED, RESULT_COUNT));
   const raw = parseAstmRecords(generateAstmResult({ seed: SEED, resultCount: RESULT_COUNT }));

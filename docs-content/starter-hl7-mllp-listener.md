@@ -2,14 +2,16 @@
 id: starter-hl7-mllp-listener
 title: Receive HL7 v2 over MLLP and acknowledge it
 sidebar_label: hl7-mllp-listener
-description: "An MLLP listener that parses each admit message it receives, prints a summary and answers with an ACK, and a client that sends it synthetic messages."
+description: "An MLLP listener that parses each admit message it receives, logs a value-free summary and answers with an ACK, and a client that sends it messages."
 ---
 
 # Receive HL7 v2 over MLLP and acknowledge it
 
 The `hl7-mllp-listener` starter receives HL7 v2 admit messages (ADT^A01) over MLLP, parses each one,
 prints a short summary, and answers with an HL7 ACK whose `MSA-2` echoes the message's `MSH-10`. A
-client in the same starter sends it synthetic messages and checks each answer.
+client in the same starter sends it synthetic messages and checks each answer. The summary is safe
+to log: the message type, its control ID and the visit class, and for the patient's name, record
+number and location only whether each is there. Neither side prints a message or a segment.
 
 Libraries: [`@cosyte/mllp`](https://docs.cosyte.com/mllp/),
 [`@cosyte/hl7`](https://docs.cosyte.com/hl7/), [`@cosyte/synth`](https://docs.cosyte.com/synth/).
@@ -43,14 +45,14 @@ terminals:
 
 ```bash
 npm run server   # listens on 127.0.0.1:2575; set PORT to use another port
-npm run send     # sends one synthetic ADT^A01 to 127.0.0.1:2575 and prints the whole ACK
+npm run send     # sends one synthetic ADT^A01 to 127.0.0.1:2575 and prints the ACK's codes
 ```
 
 `npm run send` also reads `HOST`, `PORT` and `SEED` (the synth seed, 12345 by default), and exits 1
 unless the answer is `AA` with a matching `MSA-2`.
 
-`npm test` runs the starter and checks that each message was answered `MSA|AA|` with its own
-`MSH-10`. It then starts a real listener on port 0, sends a synthetic admit and reads the ACK bytes,
+`npm test` runs the starter and checks that each message was answered `AA` with `MSA-2` matching its
+own `MSH-10`, and that the output holds no value from `PID` and no segment of the message. It then starts a real listener on port 0, sends a synthetic admit and reads the ACK bytes,
 and checks the negative answers: an `ORU^R01` gets `AR`, a payload that is not HL7 gets `AE`, and
 neither reaches the admit handler.
 
@@ -59,8 +61,8 @@ neither reaches the admit handler.
 - The listener binds `127.0.0.1` only, the `@cosyte/mllp` default, and speaks plain MLLP. To accept
   connections from other machines, bind another address and turn on TLS: an MLLP connection is
   cleartext.
-- The summary prints a patient name and an MRN because the data is synthetic. A production listener
-  should not write PHI to its logs.
+- The summary says whether a patient name and an MRN are there and never prints them, synthetic as
+  they are. A production listener should not write PHI to its logs either.
 - There is no de-duplication. MLLP with an ACK delivers at least once, so a sender may resend a
   message you already stored: de-duplicate on `MSH-10` plus `MSH-7` in your handler.
 - The ACK is the minimal one `@cosyte/mllp` builds from the `MSH` header alone, with no `ERR`
@@ -74,29 +76,23 @@ What `npm start` prints, as the starter's README gives it. This section and the 
 MLLP listener started on 127.0.0.1 (port chosen by the OS).
 
 Client sends a synthetic ADT^A01 from @cosyte/synth (seed 12345):
-  MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|20220305042943||ADT^A01|SYNTH4722901508|P|2.5
-  EVN|A01|20220305042943
-  PID|1||26068087^^^COSYTE-SYNTH^MR||Quillfeather^Fixtura||19610809|M|||7117 Sample Street^^Synthville^MN^00000||(528) 555-0105||||||969217321
-  PV1|1|E|SYNTHWARD^909^01
+  segments MSH EVN PID PV1, 285 characters
 Listener parsed it:
   ADT^A01, control id SYNTH4722901508
-  patient Fixtura Quillfeather, MRN 26068087
-  visit class E, location SYNTHWARD, room 909, bed 01
+  patient name present, MRN present
+  visit class E, location given (point of care, room, bed)
 Client received the ACK:
-  MSA|AA|SYNTH4722901508
+  segments MSH MSA
   MSA-1 is AA and MSA-2 matches the MSH-10 sent (SYNTH4722901508)
 
 Client sends a synthetic ADT^A01 from @cosyte/synth (seed 33333):
-  MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|20230420123717||ADT^A01|SYNTH8223032376|P|2.5
-  EVN|A01|20230420123717
-  PID|1||92347734^^^COSYTE-SYNTH^MR||Reprodus^Synthos||19870107|F|||2169 Example Boulevard^^Synthville^CT^00000||(911) 555-0129||||||936480619
-  PV1|1|I|SYNTHWARD^068^01
+  segments MSH EVN PID PV1, 285 characters
 Listener parsed it:
   ADT^A01, control id SYNTH8223032376
-  patient Synthos Reprodus, MRN 92347734
-  visit class I, location SYNTHWARD, room 068, bed 01
+  patient name present, MRN present
+  visit class I, location given (point of care, room, bed)
 Client received the ACK:
-  MSA|AA|SYNTH8223032376
+  segments MSH MSA
   MSA-1 is AA and MSA-2 matches the MSH-10 sent (SYNTH8223032376)
 
 2 of 2 messages answered AA, with MSA-2 matching the MSH-10 sent.
@@ -160,8 +156,7 @@ try {
   console.log(
     `Sent a synthetic ADT^A01 (seed ${seed}, control id ${ack.sentControlId}) to ${host}:${port}.`,
   );
-  console.log("ACK received:");
-  for (const segment of ack.segments) console.log(`  ${segment}`);
+  console.log(`ACK received, segments ${ack.segments.map((segment) => segment.slice(0, 3)).join(" ")}.`);
   const match = ack.correlated ? "matches" : "does not match";
   console.log(`MSA-1 is ${ack.code} and MSA-2 ${match} the MSH-10 sent.`);
   if (!ack.accepted || !ack.correlated) process.exitCode = 1;
@@ -216,29 +211,32 @@ export function summarizeAdmit(message) {
   return {
     type: meta.type, // MSH-9, for example ADT^A01
     controlId: meta.controlId, // MSH-10
-    patientName: patient?.fullName, // PID-5
-    mrn: patient?.mrn, // PID-3, the identifier typed MR
+    patientName: patient?.fullName, // PID-5, "Fixtura Quillfeather" for seed 12345, synthetic
+    mrn: patient?.mrn, // PID-3, the identifier typed MR: "26068087" for seed 12345, synthetic
     patientClass: visit?.patientClass, // PV1-2: E emergency, I inpatient, O outpatient (table 0004)
     location: visit?.location, // PV1-3: point of care, room, bed
   };
 }
 
 /**
- * The summary as printable lines. A value the message does not carry prints as "(none)".
+ * The summary as printable lines, safe to write to a log: the message type, its control id and the
+ * visit class are printed, and for the patient's name, record number and location only whether each
+ * is there. A production listener logs the same way, since its messages carry real patients.
  *
  * @param {ReturnType<typeof summarizeAdmit>} summary
  * @returns {string[]}
  */
 export function formatSummary({ type, controlId, patientName, mrn, patientClass, location }) {
-  const place = [
-    location?.pointOfCare,
-    location?.room && `room ${location.room}`,
-    location?.bed && `bed ${location.bed}`,
+  const given = (/** @type {unknown} */ value) => (value ? "present" : "absent");
+  const parts = [
+    location?.pointOfCare && "point of care",
+    location?.room && "room",
+    location?.bed && "bed",
   ].filter(Boolean);
-  const where = place.length > 0 ? place.join(", ") : "(none)";
+  const where = parts.length > 0 ? `given (${parts.join(", ")})` : "(none)";
   return [
     `${type ?? "(none)"}, control id ${controlId ?? "(none)"}`,
-    `patient ${patientName ?? "(none)"}, MRN ${mrn ?? "(none)"}`,
+    `patient name ${given(patientName)}, MRN ${given(mrn)}`,
     `visit class ${patientClass ?? "(none)"}, location ${where}`,
   ];
 }
@@ -337,15 +335,17 @@ try {
   try {
     for (const seed of SEEDS) {
       const wire = syntheticAdmit(seed);
+      // The message is never printed, synthetic or not: a listener that logs a message logs a patient.
+      const segmentNames = wire.split("\r").filter(Boolean).map((segment) => segment.slice(0, 3));
       console.log(`\nClient sends a synthetic ADT^A01 from @cosyte/synth (seed ${seed}):`);
-      for (const segment of wire.split("\r").filter(Boolean)) console.log(`  ${segment}`);
+      console.log(`  segments ${segmentNames.join(" ")}, ${wire.length} characters`);
 
       // send() frames the message, writes it, and resolves with the ACK that answers it.
       const ack = readAck(wire, await client.send(Buffer.from(wire)));
 
-      // The ACK's own MSH-7 (time) and MSH-10 (a fresh id) change on every run: print MSA only.
+      // The ACK's own MSH-7 (time) and MSH-10 (a fresh id) change on every run: print MSA's codes.
       console.log("Client received the ACK:");
-      console.log(`  ${ack.segments.find((segment) => segment.startsWith("MSA|"))}`);
+      console.log(`  segments ${ack.segments.map((segment) => segment.slice(0, 3)).join(" ")}`);
       const match = ack.correlated ? "matches" : "does not match";
       console.log(
         `  MSA-1 is ${ack.code} and MSA-2 ${match} the MSH-10 sent (${ack.sentControlId})`,
