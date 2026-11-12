@@ -29,6 +29,24 @@ export const KNOWN_UNRESOLVED_SYSTEMS = Object.freeze([
 ]);
 
 /**
+ * The one locus @cosyte/deid blocks in a converted Bundle: the data-absent-reason extension the
+ * transform writes on `MessageHeader.source._endpoint`, since `MSH-3` names no endpoint. The FHIR
+ * pass does not write an extension on a primitive, and from 0.2.13 it records each one it drops with
+ * a blocked row. Any other blocked locus fails.
+ */
+export const EXPECTED_BLOCKED_LOCI = Object.freeze(["Bundle.entry[0].resource.source._endpoint.extension[0]"]);
+
+/**
+ * The loci of the manifest rows that blocked a value.
+ *
+ * @param {readonly { locus: string, disposition: string }[]} manifest
+ * @returns {string[]}
+ */
+export function blockedLoci(manifest) {
+  return manifest.filter((entry) => entry.disposition === "blocked").map((entry) => entry.locus);
+}
+
+/**
  * One generator per message kind, each returning HL7 v2 wire text. The same seed gives the same bytes
  * on every machine, and every value comes from @cosyte/synth's synthetic pools.
  *
@@ -195,7 +213,7 @@ export function checkMessage(wire, label) {
     `${label}: the de-identified Bundle reads back with new issues`,
   );
   assert.ok(manifest.length > 0, `${label}: de-identification acted on nothing`);
-  assert.ok(manifest.every((entry) => entry.disposition !== "blocked"), `${label}: a locus was blocked`);
+  assert.deepEqual(blockedLoci(manifest), EXPECTED_BLOCKED_LOCI, `${label}: a locus other than the expected one was blocked`);
   assertAbsent(text, values, `${label}: the de-identified Bundle`);
   assertAbsent(JSON.stringify(manifest), values, `${label}: the manifest`);
   assertAbsent(JSON.stringify(unexaminedResiduals), values, `${label}: the residual list`);
@@ -247,7 +265,8 @@ export function fieldOf(wire, name, index) {
 
 /**
  * What the generator put in an animal ADT: the species and breed (code and text), and the values that
- * identify the animal or its owner, which de-identification must remove.
+ * identify the animal or its owner, which de-identification must remove: the birth date in the HL7 v2
+ * form and in the YYYY-MM-DD form FHIR writes it in, the phone, and the city among them.
  *
  * @param {string} wire
  */
@@ -266,6 +285,8 @@ export function animalSource(wire) {
   const [family, petName] = fieldOf(wire, "PID", 5).split("^");
   const [ownerFamily, ownerGiven] = fieldOf(wire, "NK1", 2).split("^");
   assert.equal(fieldOf(wire, "NK1", 3).split("^")[0], "OWN", "the NK1 is the owner");
+  const address = fieldOf(wire, "PID", 11).split("^");
+  const birthDate = fieldOf(wire, "PID", 7);
   return {
     species: coded(fieldOf(wire, "PID", 35)),
     breed: coded(fieldOf(wire, "PID", 36)),
@@ -277,7 +298,11 @@ export function animalSource(wire) {
       record: record[0],
       ownerFamily,
       ownerGiven,
-      street: fieldOf(wire, "PID", 11).split("^")[0],
+      street: address[0],
+      city: address[2],
+      phone: fieldOf(wire, "PID", 13),
+      birthDate,
+      fhirBirthDate: `${birthDate.slice(0, 4)}-${birthDate.slice(4, 6)}-${birthDate.slice(6, 8)}`,
     },
   };
 }
@@ -344,13 +369,39 @@ const PATIENT_ANIMAL_URL = "http://hl7.org/fhir/StructureDefinition/patient-anim
  * What the receiving end of the animal pipeline does with each message it is handed by the MLLP
  * listener: parse it with @cosyte/hl7 and convert it with @cosyte/transform (the starter's
  * `convertToFhir`), then de-identify both the HL7 v2 message and the FHIR Bundle with @cosyte/deid.
+ * The Bundle is de-identified twice: with the defaults (`fhir`), and with the opt-in
+ * `keepPatientAnimal` (`fhirKeepAnimal`), which keeps the coded species and breed.
  *
  * @param {Buffer} payload the message as received, framing stripped
  */
 export function receiveAnimal(payload) {
   const wire = payload.toString();
   const { message, bundle, issues } = convertToFhir(wire);
-  return { wire, message, bundle, issues, hl7: deidentifyHl7(message), fhir: deidentifyFhir(bundle) };
+  return {
+    wire,
+    message,
+    bundle,
+    issues,
+    hl7: deidentifyHl7(message),
+    fhir: deidentifyFhir(bundle),
+    fhirKeepAnimal: deidentifyFhir(bundle, { keepPatientAnimal: true }),
+  };
+}
+
+/**
+ * The species and breed of the Patient in a de-identified Bundle, read back with @cosyte/fhir's
+ * `readPatientAnimal`; each is undefined when the pass dropped it.
+ *
+ * @param {ReturnType<typeof deidentifyFhir>} result what `deidentifyFhir` returned
+ * @param {string} label
+ * @returns {Record<"species" | "breed", Coded | undefined>}
+ */
+export function animalAfter(result, label) {
+  const after = bundleEntries(result.document).find((entry) => entry.type === "Patient");
+  assert.ok(after, `${label}: the de-identified Bundle has no Patient`);
+  const kept = readPatientAnimal(after.resource);
+  assert.ok(kept, `${label}: the de-identified Patient lost its patient-animal extension`);
+  return { species: codedFromConcept(kept.species), breed: codedFromConcept(kept.breed) };
 }
 
 /** @typedef {ReturnType<typeof receiveAnimal>} AnimalReceipt */
@@ -393,9 +444,9 @@ export async function sendAnimals(wires) {
  * Check one animal message at every step of the pipeline: the MLLP link, @cosyte/hl7's typed
  * fields, @cosyte/transform's patient-animal extension read back with @cosyte/fhir's
  * `readPatientAnimal`, and both de-identifications. At each step species and breed are kept or the
- * loss is declared ({@link assertCarried}); the pet's name, the microchip and the owner's name are
- * gone from both de-identified outputs. Returns, for the FHIR de-identification, which of the two
- * happened to each part.
+ * loss is declared ({@link assertCarried}); the values {@link animalSource} lists as identifying are
+ * gone from every de-identified output. Returns, for each FHIR de-identification (`fhir`, the
+ * default, and `fhirKeepAnimal`, the opt-in), which of the two happened to each part.
  *
  * @param {string} sent the wire text that was sent
  * @param {string} ack the ACK text the sender got back
@@ -454,25 +505,39 @@ export function checkAnimal(sent, ack, receipt, label) {
   assertAbsent(JSON.stringify(hl7.manifest), secrets, `${label}: the HL7 v2 manifest`);
   assertAbsent(JSON.stringify(hl7.unexaminedResiduals), secrets, `${label}: the HL7 v2 residual list`);
 
-  // @cosyte/deid on the FHIR Bundle: the same identifiers gone, and species and breed kept or their
-  // removal recorded in the manifest.
-  const { document, manifest, unexaminedResiduals } = receipt.fhir;
-  const text = serializeResource(document);
-  assertAbsent(text, secrets, `${label}: the de-identified Bundle`);
+  // @cosyte/deid on the FHIR Bundle, with the defaults and with keepPatientAnimal: the same
+  // identifiers gone, and species and breed kept or their removal recorded in the manifest.
+  const before = JSON.parse(serializeResource(receipt.bundle));
+  return {
+    fhir: checkFhirAnimal(receipt.fhir, before, source, `${label} fhir deid`),
+    fhirKeepAnimal: checkFhirAnimal(receipt.fhirKeepAnimal, before, source, `${label} fhir deid keepPatientAnimal`),
+  };
+}
+
+/**
+ * Check one FHIR de-identification of an animal Bundle: no identifier in the output, the manifest or
+ * the residual list, and species and breed kept or their loss recorded by a manifest row at their
+ * locus ({@link assertCarried}). Returns which of the two happened to each part.
+ *
+ * @param {ReturnType<typeof deidentifyFhir>} result what `deidentifyFhir` returned
+ * @param {{ entry: { resource: any }[] }} before the Bundle before de-identification, as JSON
+ * @param {ReturnType<typeof animalSource>} source what the generator wrote
+ * @param {string} label
+ * @returns {Record<"species" | "breed", "kept" | "declared">}
+ */
+function checkFhirAnimal(result, before, source, label) {
+  const secrets = Object.values(source.identifiers);
+  const { document, manifest, unexaminedResiduals } = result;
+  assertAbsent(serializeResource(document), secrets, `${label}: the de-identified Bundle`);
   assertAbsent(JSON.stringify(manifest), secrets, `${label}: the FHIR manifest`);
   assertAbsent(JSON.stringify(unexaminedResiduals), secrets, `${label}: the FHIR residual list`);
-  const before = JSON.parse(serializeResource(receipt.bundle));
-  const after = bundleEntries(document).find((entry) => entry.type === "Patient");
-  assert.ok(after, `${label}: the de-identified Bundle has no Patient`);
-  const kept = readPatientAnimal(after.resource);
-  assert.ok(kept, `${label}: the de-identified Patient lost its patient-animal extension`);
+  const kept = animalAfter(result, label);
   /** @type {Record<"species" | "breed", "kept" | "declared">} */
   const outcome = { species: "declared", breed: "declared" };
   for (const part of /** @type {const} */ (["species", "breed"])) {
-    const locus = animalLocus(before, part);
     // Any manifest row at the locus records what the pass did there.
-    const declared = manifest.some((entry) => entry.locus === locus);
-    outcome[part] = assertCarried(`${label} fhir deid`, part, source[part], codedFromConcept(kept[part]), declared);
+    const declared = manifest.some((entry) => entry.locus === animalLocus(before, part));
+    outcome[part] = assertCarried(label, part, source[part], kept[part], declared);
   }
   return outcome;
 }

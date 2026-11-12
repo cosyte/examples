@@ -136,7 +136,7 @@ The starter's code, every file of `hl7-to-fhir/` as this release holds it, excep
     "@cosyte/transform": "^0.2.4"
   },
   "devDependencies": {
-    "@cosyte/deid": "^0.2.12",
+    "@cosyte/deid": "^0.2.13",
     "@cosyte/mllp": "^0.1.13",
     "@cosyte/terminology": "^0.1.0"
   }

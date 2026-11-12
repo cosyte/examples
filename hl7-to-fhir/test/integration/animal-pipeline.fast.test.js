@@ -2,8 +2,9 @@
 // Integration, fast slice: one animal patient through every package. A veterinary ADT from
 // @cosyte/synth crosses a real MLLP link on 127.0.0.1 (@cosyte/mllp), is read by @cosyte/hl7, converted
 // by @cosyte/transform, read back with @cosyte/fhir's readPatientAnimal, and de-identified by
-// @cosyte/deid, as HL7 v2 and as FHIR. At every step species and breed are kept or the step says it
-// lost them; a silent loss fails. Public APIs only, every value synthetic.
+// @cosyte/deid, as HL7 v2 and as FHIR, the FHIR pass with its defaults and with keepPatientAnimal.
+// At every step species and breed are kept or the step says it lost them; a silent loss fails.
+// Public APIs only, every value synthetic.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parseResource, readPatientAnimal, serializeResource } from "@cosyte/fhir";
@@ -11,6 +12,8 @@ import { generateAdt } from "@cosyte/synth/hl7";
 import {
   ANIMAL_TRIGGERS,
   animalAdt,
+  animalAfter,
+  animalLocus,
   animalSource,
   assertCarried,
   checkAnimal,
@@ -48,10 +51,27 @@ test("an animal ADT crosses MLLP, converts to FHIR and de-identifies, species an
   assert.deepEqual([...species].sort(), ["CAT", "CATTLE", "DOG", "HORSE"], "the seeds cover every species");
 });
 
-test("the FHIR de-identification keeps species and breed", { timeout: 30_000, todo: "@cosyte/deid blocks every FHIR extension value, the patient-animal extension included; the HL7 v2 pass keeps PID-35 and PID-36" }, async () => {
+test("by default the FHIR de-identification drops species and breed, each with a manifest row", { timeout: 30_000 }, async () => {
   const { acks, receipts } = await sendOnce();
   MESSAGES.forEach(({ label, wire }, index) => {
-    assert.deepEqual(checkAnimal(wire, acks[index], receipts[index], label), { species: "kept", breed: "kept" }, label);
+    const receipt = receipts[index];
+    assert.deepEqual(checkAnimal(wire, acks[index], receipt, label).fhir, { species: "declared", breed: "declared" }, label);
+    assert.deepEqual(animalAfter(receipt.fhir, label), { species: undefined, breed: undefined }, `${label}: species or breed survived`);
+    const before = JSON.parse(serializeResource(receipt.bundle));
+    for (const part of /** @type {const} */ (["species", "breed"])) {
+      const rows = receipt.fhir.manifest.filter((entry) => entry.locus === animalLocus(before, part));
+      assert.equal(rows.length, 1, `${label}: ${part} has no manifest row of its own`);
+    }
+  });
+});
+
+test("with keepPatientAnimal the FHIR de-identification keeps species and breed", { timeout: 30_000 }, async () => {
+  const { acks, receipts } = await sendOnce();
+  MESSAGES.forEach(({ label, wire }, index) => {
+    const receipt = receipts[index];
+    assert.deepEqual(checkAnimal(wire, acks[index], receipt, label).fhirKeepAnimal, { species: "kept", breed: "kept" }, label);
+    const { species, breed } = animalSource(wire);
+    assert.deepEqual(animalAfter(receipt.fhirKeepAnimal, label), { species, breed }, `${label}: species or breed changed`);
   });
 });
 
