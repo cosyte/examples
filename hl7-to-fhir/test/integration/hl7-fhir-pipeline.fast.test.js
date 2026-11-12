@@ -10,9 +10,11 @@ import { parseHL7 } from "@cosyte/hl7";
 import { isUnknownSystem, resolveSystem, validateUcum } from "@cosyte/terminology";
 import { convertToFhir } from "../../src/convert.js";
 import {
+  EXPECTED_BLOCKED_LOCI,
   KNOWN_UNRESOLVED_SYSTEMS,
   MESSAGE_KINDS,
   assertAbsent,
+  blockedLoci,
   checkMessage,
   codedValues,
   patientValues,
@@ -118,7 +120,7 @@ test("the de-identified Bundle parses back and keeps the clinical codes byte for
     const { document, manifest } = deidentifyFhir(bundle);
     const text = serializeResource(document);
     assert.equal(resourceType(parseResource(text).resource), "Bundle", `${kind}: the de-identified Bundle does not read back`);
-    assert.ok(manifest.every((entry) => entry.disposition !== "blocked"), `${kind}: de-identification blocked a locus`);
+    assert.deepEqual(blockedLoci(manifest), EXPECTED_BLOCKED_LOCI, `${kind}: de-identification blocked an unexpected locus`);
 
     const before = JSON.parse(serializeResource(bundle));
     const after = JSON.parse(text);

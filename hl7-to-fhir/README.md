@@ -95,8 +95,11 @@ on synthetic data.
   status. The synthetic ORU leaves `OBR-25` empty, so the transform withholds the report and says so
   with `TRANSFORM_RESOURCE_INVALID`.
 - `deidentifyFhir` from `@cosyte/deid` de-identifies each Bundle: no PID value is left in it, in the
-  manifest, or in the residual list, nothing is blocked, a ZIP code keeps at most three digits, the
-  Bundle reads back with `@cosyte/fhir` with no new issue, and the clinical codes are unchanged.
+  manifest, or in the residual list, a ZIP code keeps at most three digits, the Bundle reads back
+  with `@cosyte/fhir` with no new issue, and the clinical codes are unchanged. One locus is blocked,
+  and only that one: the data-absent-reason extension on `MessageHeader.source.endpoint`, which the
+  pass drops because it writes no extension on a primitive value (`EXPECTED_BLOCKED_LOCI` in
+  `test/integration/support.js`).
 - One animal patient goes through every package. `generateAdt({ subject: "animal" })` from
   `@cosyte/synth` writes a veterinary ADT (the pet's name in `PID-5`, a microchip in `PID-3`, the
   species in `PID-35`, the breed in `PID-36`, the owner in an `NK1`). It crosses a real MLLP link on
@@ -105,13 +108,17 @@ on synthetic data.
   extension, `readPatientAnimal` from `@cosyte/fhir` reads them back, the Patient validates against
   `VETERINARY_PATIENT_STARTER` with no issue, and `@cosyte/deid` de-identifies the HL7 v2 message and the Bundle.
   At every step species and breed come out as they went in, or the step says it lost them (an issue,
-  or a manifest row); a step that loses either with no word fails the test. Both de-identified
-  outputs keep no pet name, microchip, record number, owner name, or street. The seeds cover a horse,
-  a dog, a cat, and cattle.
+  or a manifest row); a step that loses either with no word fails the test. Every de-identified
+  output keeps no pet name, microchip, record number, owner name, street, city, phone, or birth
+  date. The seeds cover a horse, a dog, a cat, and cattle.
 - The HL7 v2 de-identification keeps `PID-35` and `PID-36` and removes `PID-5`, the microchip in
-  `PID-3`, and the owner's name in `NK1-2`. The FHIR de-identification blocks every extension value,
-  the `patient-animal` extension included, and records each in its manifest, so the Bundle it
-  returns has no species or breed. A `todo` test marks that until `@cosyte/deid` keeps them.
+  `PID-3`, and the owner's name in `NK1-2`.
+- The FHIR de-identification runs twice, to show its default and its opt-in side by side. By
+  default it blocks every extension value, the `patient-animal` extension included, so the Bundle
+  it returns has no species or breed, and each of the two has its own row in the manifest. With
+  `deidentifyFhir(bundle, { keepPatientAnimal: true })` it keeps the coded species and breed as they
+  went in. Turn it on only when the codes come from a terminology you trust: the pass keeps a code
+  without reading it, so a name written as a code would pass through.
 - The full suite runs the same checks over 250 seeds of every kind, and over 250 seeds of each animal
   ADT trigger (A01, A04, A08).
 
