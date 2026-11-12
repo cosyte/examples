@@ -1,0 +1,114 @@
+# Cuts a release from a version tag, the way our libraries' releases end: the docs artifacts, a
+# GitHub release carrying them, then a dispatch that rebuilds docs.cosyte.com. There is no package
+# to publish: the starters are cloned, not installed.
+#
+# To release: push the tag vMAJOR.MINOR.PATCH on a commit of main. This workflow then:
+#
+#   1. checks the tag is vMAJOR.MINOR.PATCH and on main;
+#   2. runs the docs check and the docs-content structure check on the tagged commit, as docs.yml does;
+#   3. installs every starter from its lockfile and runs its `npm test`, as starters.yml does, keeping
+#      each run's output;
+#   4. fills the "Current numbers" sections of the two quality pages from that run
+#      (scripts/release-numbers.mjs), in the working tree only;
+#   5. builds docs-content.tar.gz and source.tar.gz (scripts/pack-docs.sh);
+#   6. creates the GitHub release for the tag, with notes GitHub writes from the pull requests merged
+#      since the last release, and both archives attached;
+#   7. sends docs.cosyte.com its package-released dispatch, with DOCS_REPO_DISPATCH_TOKEN, when that
+#      secret is set. A dispatch sent with the job's own token would start no workflow there.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SCRIPT_UTILS: "@cosyte/script-utils@0.1.12"
+  NODE_VERSION: "24"
+
+jobs:
+  release:
+    name: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # create the GitHub release and attach its archives
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: The tag is a version on main
+        id: version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::${TAG} is not vMAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::${TAG} is not on main"
+            exit 1
+          fi
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Every starter has its page, and every page matches its starter
+        run: node scripts/docs-content.mjs --check
+
+      - name: docs-content structure check
+        run: npx --yes --package="$SCRIPT_UTILS" -- cosyte-docs-content
+
+      - name: Every starter, installed from its lockfile and tested
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/test-logs"
+          mapfile -t starters < <(git ls-files -- '*/package.json' | awk -F/ 'NF == 2 { print $1 }' | sort)
+          for s in "${starters[@]}"; do
+            echo "::group::${s}"
+            (cd "$s" && npm ci && npm test) 2>&1 | tee "${RUNNER_TEMP}/test-logs/${s}.log"
+            echo "::endgroup::"
+          done
+
+      - name: Fill in the quality pages' current numbers
+        run: |
+          node scripts/release-numbers.mjs --logs "${RUNNER_TEMP}/test-logs" --commit "$GITHUB_SHA" \
+            --node "$(node --version | sed 's/^v//')" --runner ubuntu-latest
+
+      - name: Build docs-content.tar.gz and source.tar.gz
+        run: scripts/pack-docs.sh "${RUNNER_TEMP}/dist-artifacts"
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes \
+            "${RUNNER_TEMP}/dist-artifacts/docs-content.tar.gz" "${RUNNER_TEMP}/dist-artifacts/source.tar.gz"
+
+      - name: Tell docs.cosyte.com
+        env:
+          DISPATCH_TOKEN: ${{ secrets.DOCS_REPO_DISPATCH_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DISPATCH_TOKEN" ]; then
+            echo "::notice::DOCS_REPO_DISPATCH_TOKEN is not set: the docs site picks this release up on its next build."
+            exit 0
+          fi
+          printf '{"event_type":"package-released","client_payload":{"package":"examples","version":"%s"}}' "$VERSION" \
+            | GH_TOKEN="$DISPATCH_TOKEN" gh api --method POST repos/cosyte/docs/dispatches --input -

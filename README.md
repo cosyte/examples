@@ -48,7 +48,8 @@ own key output in its tests, so you can clone one and build on it.
 
 Ten starters, listed below. Each sets its `@cosyte/*` versions in its own `package.json` and commits
 its `package-lock.json`, and CI runs every one of them on Node 22 and 24. This repository ships no
-package: there is no root `package.json`, no changeset, and no `CHANGELOG.md`.
+package: there is no root `package.json`, no changeset, and no `CHANGELOG.md`. A version tag releases
+the starters' pages for [docs.cosyte.com](https://docs.cosyte.com/examples/?utm_source=github&utm_medium=readme&utm_campaign=evergreen&utm_content=examples).
 
 ---
 
@@ -93,6 +94,11 @@ root. A starter's integration tests live in `test/integration/`, tagged by file 
 `*.fast.test.js` run in `npm test`, `*.full.test.js` only in `npm run test:full`. They call the
 libraries' public APIs only.
 
+`docs-content/` holds the docs site's pages: an overview that routes by what you want to build, one
+page per starter, and the guides around them. Each starter page's expected output and code are
+generated from the starter by `scripts/docs-content.mjs`, and CI fails when a starter has no page or
+a page no longer matches its starter.
+
 ---
 
 ## Versions and CI
@@ -109,7 +115,10 @@ that pass `All starters` (every starter on both Node lines) and `no-emdash`.
 
 ## Documentation
 
-The libraries themselves live in their own repositories and are documented at
+The starters are documented at
+[docs.cosyte.com/examples](https://docs.cosyte.com/examples/?utm_source=github&utm_medium=readme&utm_campaign=evergreen&utm_content=examples):
+pick one by what you want to build, then read what it shows, how to run it, and its code. The
+libraries themselves live in their own repositories and are documented at
 [docs.cosyte.com](https://docs.cosyte.com/?utm_source=github&utm_medium=readme&utm_campaign=evergreen&utm_content=examples).
 Each starter's own README shows its expected output and walks through its code.
 

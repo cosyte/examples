@@ -7,7 +7,7 @@ what CI does with the gate, the hazard, and the rules that bind here.
 
 ## Gate
 
-The gate is the four steps in AGENTS.md. Step 1 is `no-emdash.yml`'s `no-emdash` check and
+The gate is the five steps in AGENTS.md. Step 1 is `no-emdash.yml`'s `no-emdash` check and
 `claude-card.yml`, which run `@cosyte/script-utils` through npx at one pinned version; keep no gate
 script here. On a pull request its `no-emdash-messages` job scans the title, the body, and the
 commit messages (the `--stdin` mode), since a squash merge makes them the commit on `main`, and
@@ -25,7 +25,14 @@ in its place and checks every copy in the tree before the suite runs. `integrati
 proves that override with a marked tarball the registry does not have. Step 4 is `actionlint.yml`;
 `codeql.yml`, `scorecard.yml`, and `pr-title.yml` (the PR title in Conventional Commits) call the
 shared workflows at one published `workflows-*` reference. A new starter also adds its folder to
-`.github/dependabot.yml`.
+`.github/dependabot.yml`, and its page to `docs-content/`.
+Step 5 is `docs.yml`, one `docs` check on every pull request: the starter pages match their starters
+(`scripts/docs-content.mjs --check`), the scripts' tests, the docs-content structure check of
+`@cosyte/script-utils` at one pinned version, and the release's two archives built and listed.
+`release.yml` runs on a `vX.Y.Z` tag on `main`: the same checks, every starter's `npm test` with its
+counts filled into the quality pages' "Current numbers" (never committed), then a GitHub release
+carrying `docs-content.tar.gz` and `source.tar.gz`, and a dispatch to the docs site when
+`DOCS_REPO_DISPATCH_TOKEN` is set.
 
 ## Hazard: a starter gets copied into production
 
