@@ -1,8 +1,14 @@
 # ccda-summary
 
 Parse a C-CDA document with [`@cosyte/ccda`](https://github.com/cosyte/ccda) and print its document
-type, the patient, and the problems, medications, and allergies, read through the library's typed
-section accessors.
+type, what it records about the patient, and the problems, medications, and allergies, read through
+the library's typed section accessors.
+
+It prints no value that identifies the patient, synthetic as it is: for the patient it prints what
+is recorded and the precision of the birth date, and for each problem the precision of its onset,
+never the date. The problems, medications, and allergies print as codes and their display names.
+`src/main.js` reads the name, the record number, and the birth date into variables, with their
+synthetic values in comments, to show what each holds.
 
 Libraries: [`@cosyte/ccda`](https://github.com/cosyte/ccda), [`@cosyte/synth`](https://github.com/cosyte/synth).
 
@@ -20,16 +26,16 @@ Node 22 or later.
 ```text
 Synthetic CCD from @cosyte/synth (seed 198), 16493 characters of XML:
   Document type  ccd (LOINC 34133-9, Summarization of Episode Note)
-  Patient        Voidwin Reprodus, MRN 13352434, born 1973-04-08, gender F
+  Patient        name and MRN recorded, birth date to the day
   Warnings       none
 
 Problems (3):
   Type 2 diabetes mellitus
-    SNOMED CT 44054006, status active, onset 2014-03-26
+    SNOMED CT 44054006, status active, onset to the day
   Hypertensive disorder
-    SNOMED CT 38341003, status active, onset 2012-04-30
+    SNOMED CT 38341003, status active, onset to the day
   Essential hypertension
-    SNOMED CT 59621000, status active, onset 2011-02-01
+    SNOMED CT 59621000, status active, onset to the day
 
 Medications (2):
   Amlodipine 5 MG Oral Tablet
@@ -54,7 +60,8 @@ npm test
 ```
 
 The test runs `src/main.js` and checks the document type, the patient line, and one entry per
-problem, medication, and allergy against a parse of the same document. It then checks the summary
+problem, medication, and allergy against a parse of the same document, and that the output holds no
+name, record number, birth date, or onset date. It then checks the summary
 against the XML: one row per Problem Observation, Medication Activity, and Allergy Observation,
 every reported code written in the document, every drug coded in RxNorm, and the medical record
 number taken from the patient's identifiers.

@@ -8,8 +8,15 @@ const wire = syntheticRemittance(SEED);
 const { interchange, remittance } = readRemittance(wire);
 const terminator = interchange.delimiters.segment;
 
-console.log(`Synthetic 835 from @cosyte/synth (seed ${SEED}):`);
-for (const segment of wire.split(terminator).filter(Boolean)) console.log(`  ${segment}${terminator}`);
+// Nothing below prints a value that identifies a patient, synthetic or not: an example that logs a
+// patient's account number teaches a pipeline to log one. It prints segment IDs, codes, amounts and
+// counts, and names the payer and the payee, which are organizations.
+const segmentIds = wire
+  .split(terminator)
+  .filter((segment) => segment.trim() !== "")
+  .map((segment) => segment.trim().split("*")[0]);
+console.log(`Synthetic 835 from @cosyte/synth (seed ${SEED}), segments:`);
+console.log(`  ${segmentIds.join(" ")}`);
 
 /**
  * A `CCYYMMDD` date (BPR-16, PLB-02) as `YYYY-MM-DD`. Those elements always carry the `D8` shape, so
@@ -70,8 +77,12 @@ printRows("  ", paymentRows);
 console.log(`\nPayer: ${partyLine(remittance.payer)}`);
 console.log(`Payee: ${partyLine(remittance.payee)}`);
 
-for (const claim of remittance.claims.map(describeClaim)) {
-  console.log(`\nClaim ${claim.patientControlNumber} (payer claim number ${claim.payerClaimControlNumber})`);
+remittance.claims.map(describeClaim).forEach((claim, claimIndex) => {
+  // The claim's identifiers are read, never printed. The values in these comments are synthetic.
+  const patientControlNumber = claim.patientControlNumber; // "PTACCT032098", synthetic
+  const payerClaimNumber = claim.payerClaimControlNumber; // "ICN461420202", synthetic
+  const numbers = [patientControlNumber && "patient control number", payerClaimNumber && "payer claim number"];
+  console.log(`\nClaim ${claimIndex + 1} (${numbers.filter(Boolean).join(" and ") || "no numbers"} present)`);
   printRows("  ", [
     ["status", `${claim.status} ${claim.statusDescription ?? "(no bundled description)"}`],
     ["charged", shown(claim.charged)],
@@ -89,7 +100,7 @@ for (const claim of remittance.claims.map(describeClaim)) {
       printRows("    ", [["adjustment", adjustmentLine(adjustment)]]);
     }
   });
-}
+});
 
 const plbs = remittance.providerAdjustments;
 console.log(`\nProvider-level adjustments (PLB): ${plbs.length === 0 ? "none" : plbs.length}`);

@@ -28,6 +28,8 @@ before(async () => {
   ({ stdout: tour } = await run("bash", ["tour.sh"], { cwd: starterDir, env }));
 });
 
+// docs-content/starter-cli-tour.md documents each command below; this test holds every one of them
+// to the installed CLI: the tour runs it and it exits 0.
 test("every step echoes its command and exits 0", () => {
   const commands = [
     "cosyte --version",
@@ -140,6 +142,16 @@ test("redact: a message whose visit number is blocked exits 1 with no copy", asy
   assert.match(refused.stderr ?? "", /^cosyte: redact: .* PV1-19\S* .* DEID_LOCUS_BLOCKED$/m);
   assert.match(refused.stderr ?? "", /^cosyte: CLI_DEID_INCOMPLETE: /m);
   assert.ok(!(refused.stderr ?? "").includes("SYNTHVISIT1"), "the blocked value reached stderr");
+});
+
+test("the tour prints no PID identifier and no segment of the message or its de-identified copy", () => {
+  for (const value of patientIdentifiers(wire)) {
+    assert.ok(!tour.includes(value), "the tour printed a PID identifier");
+  }
+  const redacted = readFileSync(out("adt-a01.redacted.hl7"), "utf8");
+  for (const segment of [...segments, ...redacted.split(/[\r\n]+/)].filter(Boolean)) {
+    assert.ok(!tour.includes(segment), `the tour printed a whole ${segment.slice(0, 3)} segment`);
+  }
 });
 
 test("the CLI's value-free surfaces carry no patient identifier", async () => {

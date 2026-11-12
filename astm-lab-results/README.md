@@ -2,7 +2,12 @@
 
 Decode a synthetic analyzer upload, ASTM E1394 result records carried in E1381 frames, with
 [`@cosyte/astm`](https://github.com/cosyte/astm), and print each frame's checksum verdict, the header,
-the patient and order IDs, and a results table read from the library's typed result model.
+which patient and order IDs were sent, and a results table read from the library's typed result model.
+
+It prints no value that identifies the patient, synthetic as it is: a frame prints its record type and
+length, never its text; the patient and specimen IDs print only as sent or not, and a free-text
+comment prints its length. `src/main.js` reads the IDs into variables, with their synthetic values in
+comments, to show what each holds.
 
 Libraries: [`@cosyte/astm`](https://github.com/cosyte/astm),
 [`@cosyte/synth`](https://github.com/cosyte/synth).
@@ -21,30 +26,30 @@ Node 22 or later.
 ```text
 Synthetic E1381-framed upload from @cosyte/synth (seed 1033), 494 bytes:
   Frame  End  Checksum  Record
-  1      ETX  05 ok     H|\^&|FIXTURE-HOST|MOCK-CHEM^ModelC^2
-  2      ETX  26 ok     P|1|PRA85979089|LAB85711132||Dummerton^Testina^C||19410709|M
-  3      ETX  1C ok     O|1|ACC45131375||^^^ALL|R||||||N||||||||||||||F
-  4      ETX  DD ok     R|1|^^^TSH^Thyrotropin^3016-3|0.70|mIU/L|0.40-4.50|N||F
-  5      ETX  ED ok     R|2|^^^CREA^Creatinine^2160-0|0.5|mg/dL|0.6-1.3|L||F
-  6      ETX  41 ok     R|3|^^^WBC^Leukocytes^6690-2|14.5|10*3/uL|4.5-11.0|H||F
-  7      ETX  B4 ok     R|4|^^^HGB^Hemoglobin^718-7|10.8|g/dL|12.0-17.5|L||F
-  0      ETX  CA ok     C|1|L|Placeholder result comment for conformance testing.|G
-  1      ETX  04 ok     L|1|N
+  1      ETX  05 ok     H, 37 characters
+  2      ETX  26 ok     P, 60 characters
+  3      ETX  1C ok     O, 47 characters
+  4      ETX  DD ok     R, 55 characters
+  5      ETX  ED ok     R, 52 characters
+  6      ETX  41 ok     R, 55 characters
+  7      ETX  B4 ok     R, 52 characters
+  0      ETX  CA ok     C, 59 characters
+  1      ETX  04 ok     L, 5 characters
   Frames: 9, trusted: 9, frame warnings: 0
 
 Message 1: results
   Delimiters    field |  repeat \  component ^  escape &
   Sender (H.5)  not sent
   Other fields  H.3 FIXTURE-HOST, H.4 MOCK-CHEM^ModelC^2
-  Patient       practice ID PRA85979089, laboratory ID LAB85711132
-  Order         specimen ACC45131375, priority R
+  Patient       practice ID and laboratory ID sent
+  Order         specimen ID sent, priority R
 
   Test  Value  Units    Reference     Flag            Status
   TSH   0.70   mIU/L    0.40 to 4.50  N normal        F final
   CREA  0.5    mg/dL    0.6 to 1.3    L below-normal  F final
   WBC   14.5   10*3/uL  4.5 to 11.0   H above-normal  F final
   HGB   10.8   g/dL     12.0 to 17.5  L below-normal  F final
-  Comment on HGB: Placeholder result comment for conformance testing.
+  Comment on HGB: 51 characters
   Active final results: 4 of 4
 
 Record warnings: 0
@@ -62,7 +67,8 @@ npm test
 ```
 
 The test runs `src/main.js` and checks the frame summary and one table row per result, with the
-expected values read from the parsed upload. It then checks that the framed upload and its unframed
+expected values read from the parsed upload, and that the output holds no patient ID, name, or birth
+date, no specimen ID, no comment text, and no whole record. It then checks that the framed upload and its unframed
 twin from `@cosyte/synth` parse to the same results, that each row carries the value, units, range,
 flag, and status its result record sent, and that a frame whose checksum fails is dropped before the
 record parser, leaving a frame warning and one result fewer.

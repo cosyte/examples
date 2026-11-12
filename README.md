@@ -84,6 +84,19 @@ Each starter needs Node 22 or later and nothing else: no build step, no database
 localhost. `npm start` runs it and prints what it did. `npm test` runs it again and asserts the key
 output. Each starter's README shows the expected output and walks through the code.
 
+`npm ci` installs exactly the versions in the starter's committed `package-lock.json`. The ranges in
+its `package.json` are carets, such as `^0.1.0`, and every `@cosyte/*` library is below 1.0: below
+1.0 a breaking change can ship in a patch release, so a caret range does not protect you. When you
+take a starter into your own project, pin each library to an exact version:
+
+```bash
+npm install --save-exact @cosyte/hl7@0.1.8
+```
+
+What a starter prints is safe to log: types, codes, counts, lengths, and positions, never a value
+that identifies a person. [What is safe to log](https://github.com/cosyte/examples/blob/main/docs-content/how-the-starters-are-built.md#what-is-safe-to-log)
+lists it.
+
 ---
 
 ## Layout

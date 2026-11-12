@@ -47,8 +47,23 @@ change:
   starter prints `not recorded` for an absent severity, and the ASTM starter reads an unknown flag as
   `undefined`, never `normal`.
 
-Where a starter prints a patient's name or identifier, it does so because the data is synthetic. A
-production service should not write PHI to its logs.
+## What is safe to log
+
+A starter's output is what its pattern would write to a log in production, so no starter prints a
+value that identifies a patient or another person, synthetic as every value is: a name, a record or
+member number, a date of birth, an address, a phone number, an email, a free-text note, or a whole
+message, segment, record or resource.
+
+What the starters print is safe to log: message types, segment IDs, codes from a code system, counts,
+lengths, positions, the precision of a date, warning and error codes, and booleans. To show what a
+field holds, a starter reads it into a variable, with the synthetic value in a comment beside it, and
+its tests assert on values rather than print them.
+
+The starters define no error or warning of their own that carries input: their errors are fixed
+text. A library's can. `Hl7ParseError` from `@cosyte/hl7`, which `parseHL7` throws on input it
+cannot parse (the HL7 v2 starters call it), has a `snippet` field holding up to the first 40 characters of the input, verbatim: do not
+log it. Log its `code` and `position`. For any other library's error or warning, log its `code`, and
+read that library's reference before you log another field.
 
 ## Self-checking
 
@@ -65,4 +80,5 @@ published to npm. Copy it and own it.
 ## Related
 
 - [Run the full tests](./run-the-full-tests.md)
+- [Limitations](./limitations.md)
 - [Testing and quality](./testing-and-quality.md)

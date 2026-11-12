@@ -19,7 +19,7 @@ test("npm start prints the document type, the patient and the three lists", asyn
   const summary = summarize(parseCcda(syntheticCcdXml(SEED)));
 
   assert.ok(stdout.includes(`  Document type  ${summary.documentType} (`));
-  assert.ok(stdout.includes(`  Patient        ${shown(summary.patient.name)}, MRN ${shown(summary.patient.mrn)}, `));
+  assert.ok(stdout.includes("  Patient        name and MRN recorded, birth date to the day\n"));
   assert.ok(stdout.includes(`\nProblems (${summary.problems.length}):\n`));
   for (const problem of summary.problems) {
     const detail = `${shown(problem.code)}, status ${problem.status}, `;
@@ -33,6 +33,19 @@ test("npm start prints the document type, the patient and the three lists", asyn
   assert.ok(stdout.includes(`\nAllergies (${summary.allergies.length}):\n`));
   for (const allergy of summary.allergies) {
     assert.ok(stdout.includes(`  ${shown(allergy.substance)}\n    ${shown(allergy.code)}, `));
+  }
+});
+
+test("npm start prints no value that identifies the patient, and no date of theirs", async () => {
+  const { stdout } = await run(process.execPath, ["src/main.js"], { cwd: starterDir });
+  const doc = parseCcda(syntheticCcdXml(SEED));
+  const { patient, problems } = summarize(doc);
+  const name = doc.getPatient()?.name;
+  const values = [...(name?.given ?? []), name?.family, patient.mrn, patient.birthDate];
+
+  assert.ok(values.length >= 4, "the synthetic CCD names its patient");
+  for (const value of [...values, ...problems.map((problem) => problem.onset)]) {
+    assert.ok(value && !stdout.includes(value), "npm start printed a value that identifies the patient");
   }
 });
 

@@ -8,8 +8,10 @@ description: "An analyzer upload of ASTM E1394 records in E1381 frames decoded, 
 # Decode an ASTM analyzer upload into a results table
 
 The `astm-lab-results` starter decodes a synthetic analyzer upload, ASTM E1394 result records
-carried in E1381 frames, and prints each frame's checksum verdict, the header, the patient and order
-IDs, and a results table read from the library's typed result model.
+carried in E1381 frames, and prints each frame's checksum verdict, the header, which patient and
+order IDs were sent, and a results table read from the library's typed result model. It prints no
+value that identifies the patient: a frame prints its record type and length, never its text, and a
+free-text comment prints its length.
 
 Libraries: [`@cosyte/astm`](https://docs.cosyte.com/astm/),
 [`@cosyte/synth`](https://docs.cosyte.com/synth/).
@@ -26,6 +28,8 @@ Libraries: [`@cosyte/astm`](https://docs.cosyte.com/astm/),
   reference range with its bounds kept as text, the flag with its meaning (an unrecognized flag reads
   `undefined`, never `normal`), and the status: only a plain `F` is an active final result.
 - **Comments.** `commentsFor(message, result)` returns the comments attached to a result.
+- **Reading without printing.** `src/main.js` reads the practice, laboratory and specimen IDs into
+  variables, with their synthetic values in comments.
 
 ## Run it
 
@@ -38,7 +42,8 @@ npm start
 ```
 
 `npm test` runs the starter and checks the frame summary and one table row per result, with the
-expected values read from the parsed upload. It checks that the framed upload and its unframed twin
+expected values read from the parsed upload, and that the output holds no patient ID, name or birth
+date, no specimen ID, no comment text and no whole record. It checks that the framed upload and its unframed twin
 parse to the same results, and that a frame whose checksum fails is dropped before the record
 parser, leaving a frame warning and one result fewer.
 
@@ -60,30 +65,30 @@ What `npm start` prints, as the starter's README gives it. This section and the 
 ```text
 Synthetic E1381-framed upload from @cosyte/synth (seed 1033), 494 bytes:
   Frame  End  Checksum  Record
-  1      ETX  05 ok     H|\^&|FIXTURE-HOST|MOCK-CHEM^ModelC^2
-  2      ETX  26 ok     P|1|PRA85979089|LAB85711132||Dummerton^Testina^C||19410709|M
-  3      ETX  1C ok     O|1|ACC45131375||^^^ALL|R||||||N||||||||||||||F
-  4      ETX  DD ok     R|1|^^^TSH^Thyrotropin^3016-3|0.70|mIU/L|0.40-4.50|N||F
-  5      ETX  ED ok     R|2|^^^CREA^Creatinine^2160-0|0.5|mg/dL|0.6-1.3|L||F
-  6      ETX  41 ok     R|3|^^^WBC^Leukocytes^6690-2|14.5|10*3/uL|4.5-11.0|H||F
-  7      ETX  B4 ok     R|4|^^^HGB^Hemoglobin^718-7|10.8|g/dL|12.0-17.5|L||F
-  0      ETX  CA ok     C|1|L|Placeholder result comment for conformance testing.|G
-  1      ETX  04 ok     L|1|N
+  1      ETX  05 ok     H, 37 characters
+  2      ETX  26 ok     P, 60 characters
+  3      ETX  1C ok     O, 47 characters
+  4      ETX  DD ok     R, 55 characters
+  5      ETX  ED ok     R, 52 characters
+  6      ETX  41 ok     R, 55 characters
+  7      ETX  B4 ok     R, 52 characters
+  0      ETX  CA ok     C, 59 characters
+  1      ETX  04 ok     L, 5 characters
   Frames: 9, trusted: 9, frame warnings: 0
 
 Message 1: results
   Delimiters    field |  repeat \  component ^  escape &
   Sender (H.5)  not sent
   Other fields  H.3 FIXTURE-HOST, H.4 MOCK-CHEM^ModelC^2
-  Patient       practice ID PRA85979089, laboratory ID LAB85711132
-  Order         specimen ACC45131375, priority R
+  Patient       practice ID and laboratory ID sent
+  Order         specimen ID sent, priority R
 
   Test  Value  Units    Reference     Flag            Status
   TSH   0.70   mIU/L    0.40 to 4.50  N normal        F final
   CREA  0.5    mg/dL    0.6 to 1.3    L below-normal  F final
   WBC   14.5   10*3/uL  4.5 to 11.0   H above-normal  F final
   HGB   10.8   g/dL     12.0 to 17.5  L below-normal  F final
-  Comment on HGB: Placeholder result comment for conformance testing.
+  Comment on HGB: 51 characters
   Active final results: 4 of 4
 
 Record warnings: 0
@@ -153,11 +158,20 @@ const checksum = ({ checksum: { declared, valid } }) =>
 const bytes = syntheticUpload(SEED, RESULT_COUNT);
 const { message, frames, frameWarnings, messages } = readUpload(bytes);
 
+// Nothing below prints a value that identifies a patient, synthetic or not: an example that logs a
+// patient record teaches a pipeline to log one. A frame prints its record type and length, never its
+// text, and a free-text comment prints its length.
+/** @param {string} text */
+const characters = (text) => `${text.length} characters`;
+
 // The frame layer: one ETX-closed frame per record here, numbered 1 to 7 and then wrapping to 0.
 console.log(`Synthetic E1381-framed upload from @cosyte/synth (seed ${SEED}), ${bytes.length} bytes:`);
 printTable([
   ["Frame", "End", "Checksum", "Record"],
-  ...frames.map((frame) => [String(frame.frameNumber), frame.terminator ?? "none", checksum(frame), frameText(frame)]),
+  ...frames.map((frame) => {
+    const text = frameText(frame);
+    return [String(frame.frameNumber), frame.terminator ?? "none", checksum(frame), `${text.charAt(0)}, ${characters(text)}`];
+  }),
 ]);
 const trusted = frames.filter((frame) => frame.trusted).length;
 console.log(`  Frames: ${frames.length}, trusted: ${trusted}, frame warnings: ${frameWarnings.length}`);
@@ -174,8 +188,16 @@ for (const m of messages) {
   line("Delimiters", `field ${field}  repeat ${repeat}  component ${component}  escape ${escape}`);
   line("Sender (H.5)", sender?.text ?? "not sent");
   line("Other fields", others.map(({ position, text }) => `H.${position} ${text}`).join(", ") || "none");
-  line("Patient", `practice ID ${patient?.practiceAssignedId}, laboratory ID ${patient?.laboratoryAssignedId}`);
-  for (const order of m.orders) line("Order", `specimen ${order.specimenId}, priority ${order.priority}`);
+  // The patient's and the specimen's identifiers are read, never printed. The values in these comments
+  // are synthetic.
+  const practiceId = patient?.practiceAssignedId; // "PRA85979089", synthetic
+  const laboratoryId = patient?.laboratoryAssignedId; // "LAB85711132", synthetic
+  const ids = [practiceId && "practice ID", laboratoryId && "laboratory ID"].filter(Boolean);
+  line("Patient", `${ids.join(" and ") || "no ID"} sent`);
+  for (const order of m.orders) {
+    const specimenId = order.specimenId; // "ACC45131375", synthetic
+    line("Order", `specimen ID ${specimenId ? "sent" : "not sent"}, priority ${order.priority}`);
+  }
 
   const rows = resultRows(message, m.results);
   console.log("");
@@ -183,7 +205,7 @@ for (const m of messages) {
     ["Test", "Value", "Units", "Reference", "Flag", "Status"],
     ...rows.map((row) => [row.test, row.value, row.units, row.range, row.flag, row.status]),
   ]);
-  for (const row of rows) for (const text of row.comments) console.log(`  Comment on ${row.test}: ${text}`);
+  for (const row of rows) for (const text of row.comments) console.log(`  Comment on ${row.test}: ${characters(text)}`);
   console.log(`  Active final results: ${rows.filter((row) => row.activeFinal).length} of ${rows.length}`);
 }
 

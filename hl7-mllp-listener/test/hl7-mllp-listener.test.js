@@ -63,13 +63,38 @@ test(
 
     for (const seed of [12345, 33333]) {
       const input = parseHL7(syntheticAdmit(seed));
-      assert.match(stdout, new RegExp(`^  MSA\\|AA\\|${input.meta.controlId}$`, "m"));
       assert.match(
         stdout,
-        new RegExp(`^  patient ${input.patient?.fullName}, MRN ${input.patient?.mrn}$`, "m"),
+        new RegExp(`^  MSA-1 is AA and MSA-2 matches the MSH-10 sent \\(${input.meta.controlId}\\)$`, "m"),
       );
     }
+    assert.match(stdout, /^ {2}patient name present, MRN present$/m);
     assert.match(stdout, /^2 of 2 messages answered AA/m);
+  },
+);
+
+test(
+  "npm start prints no value from PID and no segment of either message",
+  { timeout: 30_000 },
+  async () => {
+    const { stdout } = await run(process.execPath, ["src/main.js"], {
+      cwd: starterDir,
+      timeout: 25_000,
+    });
+
+    for (const seed of [12345, 33333]) {
+      const wire = syntheticAdmit(seed);
+      const { patient } = parseHL7(wire);
+      const paths = ["PID.3.1", "PID.5.1", "PID.5.2", "PID.7", "PID.11.1", "PID.13", "PID.19"];
+      const values = paths.map((path) => parseHL7(wire).get(path)).filter((value) => value);
+      assert.ok(values.length >= 6, "the synthetic PID carries identifiers");
+      for (const value of [...values, patient?.fullName, patient?.mrn]) {
+        assert.ok(value && !stdout.includes(value), "npm start printed a value from PID");
+      }
+      for (const segment of wire.split("\r").filter(Boolean)) {
+        assert.ok(!stdout.includes(segment), `npm start printed a whole ${segment.slice(0, 3)} segment`);
+      }
+    }
   },
 );
 

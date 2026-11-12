@@ -8,23 +8,33 @@ import { syntheticCtHeader } from "./part10.js";
 const part10 = syntheticCtHeader();
 const input = parseDicom(part10);
 
+// Nothing below prints a value that identifies a person, synthetic or not: an example that logs a
+// patient's name teaches a pipeline to log one. To see what an attribute holds, read it into a
+// variable or assert on it. The values in these comments are synthetic.
 const metadata = readMetadata(input);
+const patientName = metadata.patientName; // "ZZTEST^SYNTHETIC", synthetic
+const patientId = metadata.patientId; // "ZZTEST-0001 (issuer EXAMPLE.ORG)", synthetic
+const birthDate = metadata.birthDate; // "1970-01-01", synthetic
+const accessionNumber = metadata.accessionNumber; // "ZZACC0001", synthetic
+
+/** @param {string | undefined} value Whether an attribute holds a value: never the value itself. */
+const present = (value) => (value === undefined || value === "" ? "absent" : "present");
+
 console.log(`Synthetic CT header (${part10.length} bytes of DICOM Part 10, built in memory):`);
 /** @type {[string, string | undefined][]} */
 const rows = [
   ["Transfer syntax", metadata.transferSyntax],
   ["SOP class", metadata.sopClass],
-  ["SOP instance UID", metadata.sopInstanceUid],
-  ["Patient name", metadata.patientName],
-  ["Patient ID", metadata.patientId],
-  ["Birth date", metadata.birthDate],
-  ["Sex", metadata.sex],
-  ["Study instance UID", metadata.studyInstanceUid],
-  ["Study date", metadata.studyDate],
-  ["Accession number", metadata.accessionNumber],
   ["Modality", metadata.modality],
-  ["Series instance UID", metadata.seriesInstanceUid],
   ["Parse warnings", input.warnings.map((w) => w.code).join(", ") || "none"],
+  ["Patient name", present(patientName)],
+  ["Patient ID", present(patientId)],
+  ["Birth date", present(birthDate)],
+  ["Study date", present(metadata.studyDate)],
+  ["Accession number", present(accessionNumber)],
+  ["Study instance UID", present(metadata.studyInstanceUid)],
+  ["Series instance UID", present(metadata.seriesInstanceUid)],
+  ["SOP instance UID", present(metadata.sopInstanceUid)],
 ];
 for (const [label, value] of rows) console.log(`  ${label.padEnd(20)} ${value ?? "(absent)"}`);
 
@@ -32,15 +42,22 @@ for (const [label, value] of rows) console.log(`  ${label.padEnd(20)} ${value ??
 const uidMap = new Map();
 const { bytes, output, manifest, warnings, burnedInAnnotationHazard } = deidentifyHeader(input, uidMap);
 
+// The de-identified header prints a value only for the coded attributes below, which name a kind of
+// object or what the pass did. Every other attribute prints its shape: empty, a sequence, or a length.
+const CODED = new Set(["SOPClassUID", "Modality", "PatientIdentityRemoved", "LongitudinalTemporalInformationModified"]);
 console.log(`\nDe-identified header (${bytes.length} bytes, read back from the written file):`);
-const header = output.elements().map((element) => ({
-  tag: `(${element.tag.slice(0, 4)},${element.tag.slice(4)})`,
-  keyword: Dictionary.lookup(element.tag)?.keyword ?? "",
-  value: displayValue(element),
-}));
+const header = output.elements().map((element) => {
+  const keyword = Dictionary.lookup(element.tag)?.keyword ?? "";
+  const text = displayValue(element);
+  const kind = element.value.kind;
+  const length = `(${text.length} character${text.length === 1 ? "" : "s"})`;
+  const shape = kind === "empty" || kind === "sequence" ? text : length;
+  const tag = `(${element.tag.slice(0, 4)},${element.tag.slice(4)})`;
+  return { tag, keyword, shown: CODED.has(keyword) ? text : shape };
+});
 const keywordWidth = Math.max(...header.map((row) => row.keyword.length));
-for (const { tag, keyword, value } of header) {
-  console.log(`  ${tag} ${keyword.padEnd(keywordWidth)}  ${value}`);
+for (const { tag, keyword, shown } of header) {
+  console.log(`  ${tag} ${keyword.padEnd(keywordWidth)}  ${shown}`);
 }
 
 console.log("\nManifest (value-free: locus, category, transform, disposition, code):");

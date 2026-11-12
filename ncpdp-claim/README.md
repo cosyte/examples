@@ -5,6 +5,11 @@ Parse a synthetic NCPDP Telecom D.0 billing claim (B1) and a paid response to it
 routing, product, quantity, and the amounts submitted, then the claim's status and the amounts paid,
 with every amount read as text and never as a floating-point number.
 
+It prints no value that identifies the patient, synthetic as it is: the group ID, the prescription
+number, and the authorization number print only as sent or not, the date of service as its
+precision, and the response as its segments, never its wire text. `src/main.js` reads those values
+into variables, with their synthetic values in comments, to show what each holds.
+
 Libraries: [`@cosyte/ncpdp`](https://github.com/cosyte/ncpdp),
 [`@cosyte/synth`](https://github.com/cosyte/synth).
 
@@ -22,11 +27,11 @@ Node 22 or later.
 ```text
 Claim: synthetic B1 from @cosyte/synth (seed 1), Pricing segment added
   Segments                    01 Patient, 04 Insurance, 03 Prescriber, 07 Claim, 11 Pricing
-  BIN / PCN / group           999999 / SYN2561 / GRP05182
+  BIN / PCN / group           999999 / SYN2561 / group ID sent
   Transaction                 B1, version D0
-  Date of service             20240218
+  Date of service             a day (CCYYMMDD)
   Pharmacy                    3212672670 (ID qualifier 01)
-  Prescription                RX2929783, fill 4
+  Prescription                number sent, fill 4
   Product/service ID          00000070707 (qualifier 03)
   Quantity dispensed          31 on the wire, 0.031 decoded
   Days supply                 60
@@ -38,15 +43,12 @@ Claim: synthetic B1 from @cosyte/synth (seed 1), Pricing segment added
   Parse warnings              0
 
 Response: synthetic paid answer written by src/claim.js
-  D0B11A013212672670     20240218
-  <GS>
-  <RS><FS>AM21<FS>ANP<FS>F3SYNTHAUTH01
-  <RS><FS>AM22<FS>EM1<FS>D2RX2929783
-  <RS><FS>AM23<FS>F5100{<FS>F6405{<FS>F717E<FS>F9322E
-  Echoes                      B1, pharmacy 3212672670, prescription RX2929783
+  Segments                    21 Response Status, 22 Response Claim, 23 Response Pricing
+  Wire lines                  5
+  Echoes                      B1, pharmacy 3212672670, prescription number matches the claim
   Transmission status         A
   Claim status                P, disposition paid
-  Authorization               SYNTHAUTH01
+  Authorization number        sent
   Reject codes                none
   Pricing paid                wire  amount
     Ingredient cost (F6)      405{   40.50
@@ -59,8 +61,9 @@ Response: synthetic paid answer written by src/claim.js
 Each amount prints beside its wire form. An NCPDP amount carries two implied decimal places and signs
 its last character, so `456G` is 45.67 and `100{` is 10.00. Quantity Dispensed carries three implied
 decimal places, which is why this claim's `31` reads as 0.031: see [Limits](#limits). The response
-prints with its control characters named: `<GS>` opens the transaction, `<RS>` each segment, `<FS>` each
-field.
+prints its segments and the number of lines its wire text takes with the control characters named
+(`visibleWire` in `src/claim.js`: `<GS>` opens the transaction, `<RS>` each segment, `<FS>` each
+field), and whether the prescription number it echoes matches the claim's.
 
 ## Test
 
@@ -68,8 +71,10 @@ field.
 npm test
 ```
 
-The test runs `src/main.js` and checks the product line, the echoed prescription number, the paid
-status, and that neither parse raised a warning. It then reads the claim in process and checks the
+The test runs `src/main.js` and checks the product line, that the echoed prescription number
+matches, the paid status, and that neither parse raised a warning, and that the output holds no
+patient name, birth date, cardholder or group ID, prescription or authorization number, date of
+service, or line of the wire. It then reads the claim in process and checks the
 claim view against the Claim segment's own fields, checks that the paid response echoes the claim
 and that its total paid equals ingredient cost plus dispensing fee minus patient pay, and checks
 that a rejected response reads as rejected with every reject code in wire order, even when its

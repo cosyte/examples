@@ -1,15 +1,16 @@
 ---
 id: starter-ccda-summary
-title: Summarize a C-CDA document
+title: Read a C-CDA document into a summary
 sidebar_label: ccda-summary
 description: "A C-CDA document parsed into its type, the patient, and the problems, medications and allergies, through the library's typed section accessors."
 ---
 
-# Summarize a C-CDA document
+# Read a C-CDA document into a summary
 
-The `ccda-summary` starter parses a synthetic C-CDA document and prints its document type, the
-patient, and the problems, medications and allergies, read through the library's typed section
-accessors.
+The `ccda-summary` starter parses a synthetic C-CDA document and prints its document type, what it
+records about the patient, and the problems, medications and allergies, read through the library's
+typed section accessors. It prints no value that identifies the patient: no name, record number,
+birth date or onset date, only what is recorded and the precision of each date.
 
 Libraries: [`@cosyte/ccda`](https://docs.cosyte.com/ccda/),
 [`@cosyte/synth`](https://docs.cosyte.com/synth/).
@@ -28,6 +29,8 @@ Libraries: [`@cosyte/ccda`](https://docs.cosyte.com/ccda/),
   and `src/ccda.js` maps them to the names it prints.
 - **Nothing filled in.** Severity reads `not recorded` when the document carries no Severity
   Observation: the starter never fills in a value the document does not carry.
+- **Reading without printing.** `src/main.js` reads the patient's name, record number and birth date
+  into variables, with their synthetic values in comments.
 
 ## Run it
 
@@ -40,7 +43,8 @@ npm start
 ```
 
 `npm test` runs the starter and checks the document type, the patient line, and one entry per
-problem, medication and allergy against a parse of the same document. It then checks the summary
+problem, medication and allergy against a parse of the same document, and that the output holds no
+name, record number, birth date or onset date. It then checks the summary
 against the XML: one row per Problem Observation, Medication Activity and Allergy Observation, every
 reported code written in the document, every drug coded in RxNorm, and the medical record number
 taken from the patient's identifiers.
@@ -61,16 +65,16 @@ What `npm start` prints, as the starter's README gives it. This section and the 
 ```text
 Synthetic CCD from @cosyte/synth (seed 198), 16493 characters of XML:
   Document type  ccd (LOINC 34133-9, Summarization of Episode Note)
-  Patient        Voidwin Reprodus, MRN 13352434, born 1973-04-08, gender F
+  Patient        name and MRN recorded, birth date to the day
   Warnings       none
 
 Problems (3):
   Type 2 diabetes mellitus
-    SNOMED CT 44054006, status active, onset 2014-03-26
+    SNOMED CT 44054006, status active, onset to the day
   Hypertensive disorder
-    SNOMED CT 38341003, status active, onset 2012-04-30
+    SNOMED CT 38341003, status active, onset to the day
   Essential hypertension
-    SNOMED CT 59621000, status active, onset 2011-02-01
+    SNOMED CT 59621000, status active, onset to the day
 
 Medications (2):
   Amlodipine 5 MG Oral Tablet
@@ -243,6 +247,13 @@ const SEED = 198;
 /** @param {string | undefined} value */
 const shown = (value) => value ?? "not recorded";
 
+/**
+ * The precision of a date from `v3Date` (YYYY-MM-DD, YYYY-MM or YYYY), never the date itself.
+ *
+ * @param {string | undefined} date
+ */
+const precision = (date) => (date === undefined ? "not recorded" : ["year", "month", "day"][date.split("-").length - 1]);
+
 // parseCcda takes the XML text of a C-CDA document: here a synthetic CCD, in your integration the
 // document a sending system handed you. Quirks become warnings on doc.warnings, not failures.
 const xml = syntheticCcdXml(SEED);
@@ -252,14 +263,19 @@ const summary = summarize(doc);
 console.log(`Synthetic CCD from @cosyte/synth (seed ${SEED}), ${xml.length} characters of XML:`);
 const { documentType, documentCode, documentTitle } = summary;
 console.log(`  Document type  ${shown(documentType)} (${shown(documentCode)}, ${shown(documentTitle)})`);
-const { name, mrn, birthDate, gender } = summary.patient;
-console.log(`  Patient        ${shown(name)}, MRN ${shown(mrn)}, born ${shown(birthDate)}, gender ${shown(gender)}`);
+// The patient's own values are read, never printed: an example that logs a patient's name teaches a
+// pipeline to log one. To see what a field holds, read it into a variable or assert on it.
+const patientName = summary.patient.name; // "Voidwin Reprodus", synthetic
+const recordNumber = summary.patient.mrn; // "13352434", synthetic
+const birthDate = summary.patient.birthDate; // "1973-04-08", synthetic
+const held = [patientName && "name", recordNumber && "MRN"].filter(Boolean).join(" and ") || "nothing";
+console.log(`  Patient        ${held} recorded, birth date to the ${precision(birthDate)}`);
 console.log(`  Warnings       ${doc.warnings.map((w) => w.code).join(", ") || "none"}`);
 
 console.log(`\nProblems (${summary.problems.length}):`);
 for (const problem of summary.problems) {
   console.log(`  ${shown(problem.name)}`);
-  console.log(`    ${shown(problem.code)}, status ${problem.status}, onset ${shown(problem.onset)}`);
+  console.log(`    ${shown(problem.code)}, status ${problem.status}, onset to the ${precision(problem.onset)}`);
 }
 
 console.log(`\nMedications (${summary.medications.length}):`);

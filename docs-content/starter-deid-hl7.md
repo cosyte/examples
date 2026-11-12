@@ -10,7 +10,8 @@ description: "An HL7 v2 admit message run through the Safe Harbor policy, with t
 The `deid-hl7` starter runs a synthetic HL7 v2 admit message through the Safe Harbor policy of
 `@cosyte/deid` and prints the value-free manifest: which identifier categories it acted on, at which
 locus and how, without a single value. It also lists the positions the policy passed through without
-a rule, so you can see what it did not examine.
+a rule, so you can see what it did not examine. It prints no value from the message, before or after:
+segment names, how many fields of each hold a value, and the precision of each date.
 
 Libraries: [`@cosyte/deid`](https://docs.cosyte.com/deid/),
 [`@cosyte/hl7`](https://docs.cosyte.com/hl7/), [`@cosyte/synth`](https://docs.cosyte.com/synth/).
@@ -28,6 +29,9 @@ Libraries: [`@cosyte/deid`](https://docs.cosyte.com/deid/),
   key is the option, and it does not claim Safe Harbor.
 - **A check you can keep.** `src/main.js` searches the output, the manifest and the residual list for
   every identifier read from the input, and exits 1 if one is found.
+- **Reading without printing.** To show what a field holds, `src/main.js` reads the date of birth
+  before and after into variables, with the synthetic values in comments, and prints only their
+  precision.
 
 ## Run it
 
@@ -42,7 +46,8 @@ npm start
 The Safe Harbor policy uses no key, so every run prints the same output.
 
 `npm test` runs the starter and checks the manifest rows for the medical record number, name, date
-of birth, phone, national identifier and the two timestamps. It de-identifies the message again in
+of birth, phone, national identifier and the two timestamps, and that the output holds no identifier
+from the input and no segment of the message. It de-identifies the message again in
 process and checks that no identifier read from the input `PID` segment appears in the output, the
 manifest or the residual list, and that each of the three dates keeps its year and nothing finer.
 
@@ -60,17 +65,18 @@ manifest or the residual list, and that each of the three dates keeps its year a
 What `npm start` prints, as the starter's README gives it. This section and the next are generated from the starter by `scripts/docs-content.mjs`, and CI fails when they no longer match it.
 
 ```text
-Synthetic ADT^A01 from @cosyte/synth (seed 12345):
-  MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|20220305042943||ADT^A01|SYNTH4722901508|P|2.5
-  EVN|A01|20220305042943
-  PID|1||26068087^^^COSYTE-SYNTH^MR||Quillfeather^Fixtura||19610809|M|||7117 Sample Street^^Synthville^MN^00000||(528) 555-0105||||||969217321
-  PV1|1|E|SYNTHWARD^909^01
+Synthetic ADT^A01 from @cosyte/synth (seed 12345), 4 segments.
 
-De-identified (Safe Harbor policy):
-  MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|2022||ADT^A01|SYNTH4722901508|P|2.5
-  EVN|A01|2022
-  PID|1||^^^COSYTE-SYNTH^MR||||1961|M|||^^^^000||||||||
-  PV1|1|E|SYNTHWARD^909^01
+Fields holding a value, per segment, before and after (Safe Harbor policy):
+  MSH  10 -> 10
+  EVN   2 -> 2
+  PID   8 -> 5
+  PV1   3 -> 3
+
+Date precision, before and after:
+  PID-7  day -> year
+  MSH-7  time -> year
+  EVN-2  time -> year
 
 Manifest (value-free: locus, category, transform, disposition, code):
   MSH-7[0]     DATES        generalize   transformed  DEID_RESIDUAL_RETAINED
@@ -184,11 +190,37 @@ const SEED = 12345;
 const wire = syntheticAdmit(SEED);
 const { input, output, manifest, residuals } = deidentifyMessage(wire);
 
-console.log(`Synthetic ADT^A01 from @cosyte/synth (seed ${SEED}):`);
-for (const segment of wire.split("\r").filter(Boolean)) console.log(`  ${segment}`);
+// Nothing below prints a value from the message, synthetic or not: an example that logs a patient's
+// name teaches a pipeline to log one. It prints segment names, counts, date precision and codes.
+/** @param {string} text */
+const segmentsOf = (text) => text.split("\r").filter(Boolean);
+/** @param {string} segment The fields of a segment that hold anything: a count, never a value. */
+const filled = (segment) => segment.split("|").slice(1).filter((field) => field !== "").length;
 
-console.log("\nDe-identified (Safe Harbor policy):");
-for (const segment of output.toString().split("\r").filter(Boolean)) console.log(`  ${segment}`);
+const before = segmentsOf(wire);
+const after = segmentsOf(output.toString());
+console.log(`Synthetic ADT^A01 from @cosyte/synth (seed ${SEED}), ${before.length} segments.`);
+console.log("\nFields holding a value, per segment, before and after (Safe Harbor policy):");
+before.forEach((segment, i) => {
+  console.log(`  ${segment.slice(0, 3)}  ${String(filled(segment)).padStart(2)} -> ${filled(after[i] ?? "")}`);
+});
+
+// To see what a field holds, read it into a variable or assert on it. The values in these comments
+// are synthetic, from @cosyte/synth.
+const birthDateIn = input.get("PID.7"); // "19610809", synthetic
+const birthDateOut = output.get("PID.7"); // "1961", synthetic
+/** @param {string | undefined} value An HL7 v2 date or timestamp, named by its precision only. */
+const precision = (value) => {
+  if (!value) return "empty";
+  if (value.length <= 4) return "year";
+  if (value.length <= 6) return "month";
+  return value.length <= 8 ? "day" : "time";
+};
+console.log("\nDate precision, before and after:");
+console.log(`  PID-7  ${precision(birthDateIn)} -> ${precision(birthDateOut)}`);
+for (const path of ["MSH.7", "EVN.2"]) {
+  console.log(`  ${path.replace(".", "-")}  ${precision(input.get(path))} -> ${precision(output.get(path))}`);
+}
 
 console.log("\nManifest (value-free: locus, category, transform, disposition, code):");
 for (const entry of manifest) {

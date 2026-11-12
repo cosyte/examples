@@ -52,9 +52,11 @@ test("npm start prints the payer, subscriber and benefits read from the syntheti
   const printed = (pattern) => assert.match(stdout, new RegExp(pattern, "m"));
 
   printed(`^Payer \\(information source\\): ${literal(facts.payer?.name ?? "?")}, `);
-  printed(`^  member ID\\s+${literal(facts.memberId ?? "?")} \\(MI\\)$`);
-  printed(`^  group number\\s+${literal(facts.group.number ?? "?")} \\(REF 6P\\)$`);
-  printed(`^  270 trace\\s+${literal(facts.traces.join(", "))} `);
+  printed("^Subscriber: name present$");
+  printed("^  member ID\\s+present \\(MI\\)$");
+  printed("^  date of birth\\s+a day \\(DMG D8\\)$");
+  printed("^  group number\\s+present \\(REF 6P\\)$");
+  printed(`^  270 traces\\s+${facts.traces.length} `);
   for (const benefit of facts.benefits) {
     printed(`^  ${literal(`${benefit.code} ${benefit.type}`)}, coverage level `);
     printed(`^    amount\\s+${literal(benefit.amount ?? "?")}$`);
@@ -62,10 +64,32 @@ test("npm start prints the payer, subscriber and benefits read from the syntheti
   const status = facts.coverageStatus.map((benefit) => `${benefit.code} ${benefit.type}`).join("; ");
   printed(`^Coverage status: ${literal(status)}$`);
   printed("^Inquiry rejections \\(AAA segments\\): 0$");
-  printed("^  ST\\*270\\*0001\\*005010X279A1~$");
-  printed(`^  trace\\s+${literal(facts.traces[0] ?? "?")} \\(TRN-02\\), originator ${TRACE_ORIGINATOR} \\(TRN-03\\)$`);
+  printed("^  ISA GS ST BHT HL NM1 HL NM1 HL TRN NM1 DMG EQ SE GE IEA$");
+  printed(`^  trace\\s+TRN-02 present, originator ${TRACE_ORIGINATOR} \\(TRN-03\\)$`);
   printed("^  The 271 echoes this trace, so it answers this 270\\.$");
   printed("^Warnings \\(parse, 271 and 270 readers\\): 0$");
+});
+
+test("npm start prints no value that identifies the member, and no segment of the 271 or the 270", async () => {
+  const { stdout } = await run(process.execPath, ["src/main.js"], { cwd: starterDir });
+  const wire = syntheticEligibilityResponse(SEED);
+  const { interchange, eligibility } = readEligibility(wire);
+  const subscriber = eligibility.subscribers[0];
+  assert.ok(subscriber, "expected a subscriber in the 271");
+  const facts = describeSubscriber(subscriber);
+  const { lastName, firstName, address } = subscriber.name ?? {};
+  const values = [lastName, firstName, facts.memberId, facts.dateOfBirth, facts.group.number, ...facts.traces];
+  for (const value of [...values, address?.lines[0], address?.city]) {
+    assert.ok(value && !stdout.includes(value), "npm start printed a value that identifies the member");
+  }
+  const request = inquiryFor(interchange, subscriber);
+  const segments = [
+    ...wire.split(interchange.delimiters.segment),
+    ...request.split(readInquiry(request).interchange.delimiters.segment),
+  ];
+  for (const segment of segments.filter((text) => text.includes("*"))) {
+    assert.ok(!stdout.includes(segment.trim()), "npm start printed a whole segment");
+  }
 });
 
 test("the typed reading agrees with the raw segments of the synthetic 271", () => {

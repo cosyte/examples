@@ -13,6 +13,7 @@
       "type": "category",
       "label": "Reference",
       "items": [
+        "limitations",
         {
           "type": "category",
           "label": "Starters",

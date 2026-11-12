@@ -8,7 +8,9 @@ description: "An ADT^A01 converted to a FHIR R4 message Bundle of MessageHeader,
 # Convert an HL7 v2 admit to a FHIR R4 Bundle
 
 The `hl7-to-fhir` starter converts a synthetic HL7 v2 admit message (ADT^A01) into a FHIR R4 message
-Bundle, then validates the Bundle and every resource in it.
+Bundle, then validates the Bundle and every resource in it. It prints no value that identifies the
+patient: for the Patient, how many of each element the transform wrote, the identifier's type and
+system, and the precision of the birth date.
 
 Libraries: [`@cosyte/transform`](https://docs.cosyte.com/transform/),
 [`@cosyte/fhir`](https://docs.cosyte.com/fhir/), [`@cosyte/hl7`](https://docs.cosyte.com/hl7/),
@@ -31,6 +33,9 @@ Libraries: [`@cosyte/transform`](https://docs.cosyte.com/transform/),
 - **Validation.** `validateResource` from `@cosyte/fhir` validates the Bundle, then each entry on its
   own, in strict mode with the starter-kit profiles, whose Patient profile requires
   `identifier.system` and `identifier.value`.
+- **Reading without printing.** `src/main.js` reads the family name, the record number and the birth
+  date into variables, with their synthetic values in comments, and prints counts, codes and the
+  date's precision.
 
 ## Run it
 
@@ -45,7 +50,8 @@ npm start
 `@cosyte/hl7` and `@cosyte/fhir` are peer dependencies of `@cosyte/transform`, so `package.json`
 lists them beside it.
 
-`npm test` runs the starter and checks the Patient name and the validation total. For four seeds
+`npm test` runs the starter and checks the Patient lines and the validation total, and that the
+output holds no value from `PID` and no segment of the message. For four seeds
 that cover patient classes E, O and I and both sexes, it converts the admit in process and checks
 the Bundle against the parsed input: the Patient's name, identifier, gender, birth date and address
 come from `PID`, the Encounter's class comes from `PV1-2`, its subject is the Patient entry, and
@@ -67,23 +73,19 @@ diagnostics.
 What `npm start` prints, as the starter's README gives it. This section and the next are generated from the starter by `scripts/docs-content.mjs`, and CI fails when they no longer match it.
 
 ```text
-Synthetic ADT^A01 from @cosyte/synth (seed 12345):
-  MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|20220305042943||ADT^A01|SYNTH4722901508|T|2.5
-  EVN|A01|20220305042943
-  PID|1||26068087^^^COSYTE-SYNTH^MR||Quillfeather^Fixtura||19610809|M|||7117 Sample Street^^Synthville^MN^00000||(528) 555-0105||||||969217321
-  PV1|1|E|SYNTHWARD^909^01
+Synthetic ADT^A01 from @cosyte/synth (seed 12345), segments MSH EVN PID PV1
 
-FHIR R4 Bundle from @cosyte/transform (type message, identifier SYNTH4722901508):
+FHIR R4 Bundle from @cosyte/transform (type message, 3 entries):
   MessageHeader  urn:uuid:00000000-0000-4000-8000-000000000003
   Patient        urn:uuid:00000000-0000-4000-8000-000000000001
   Encounter      urn:uuid:00000000-0000-4000-8000-000000000002
 
 Patient (from PID):
-  name        family Quillfeather, given Fixtura
-  identifier  26068087, type MR, system https://example.org/fhir/sid/synthetic-mrn
-  gender      male
-  birthDate   1961-08-09
-  address     line 7117 Sample Street, city Synthville, state MN, postalCode 00000
+  elements    name 1, identifier 1, telecom 0, address 1
+  family      present
+  MRN         8 characters
+  identifier  type MR, system https://example.org/fhir/sid/synthetic-mrn
+  birthDate   precision day
 
 Encounter (from PV1):
   class       EMER (emergency)
@@ -302,7 +304,8 @@ import {
 const SEED = 12345;
 
 /**
- * Print one aligned line: a label, then the string values each path selects on `node`.
+ * Print one aligned line: a label, then the string values each path selects on `node`. Call it only
+ * for paths that hold codes, statuses and references, never a value that identifies a person.
  *
  * @param {string} label
  * @param {import("@cosyte/fhir").FhirNode} node
@@ -313,31 +316,48 @@ function field(label, node, template) {
   console.log(`  ${label.padEnd(11)} ${text}`);
 }
 
+/**
+ * The precision of a FHIR date, never the date: "year", "month", "day", or "absent".
+ *
+ * @param {string | undefined} date
+ */
+function precision(date) {
+  if (date === undefined) return "absent";
+  return ["year", "month", "day"][date.split("-").length - 1] ?? "time";
+}
+
 const wire = syntheticAdmit(SEED);
 const { bundle, issues } = convertToFhir(wire);
 
-console.log(`Synthetic ADT^A01 from @cosyte/synth (seed ${SEED}):`);
-for (const segment of wire.split("\r").filter(Boolean)) console.log(`  ${segment}`);
+// Nothing below prints a value that identifies a person, synthetic or not: an example that logs a
+// patient's name teaches a pipeline to log one. It prints segment names, types, codes and counts.
+const segmentNames = wire.split("\r").filter(Boolean).map((segment) => segment.slice(0, 3));
+console.log(`Synthetic ADT^A01 from @cosyte/synth (seed ${SEED}), segments ${segmentNames.join(" ")}`);
 
 // A message Bundle: the MessageHeader first, then the resources the message describes.
 const entries = bundleEntries(bundle);
 const type = stringsAt(bundle, "type")[0];
-const identifier = stringsAt(bundle, "identifier.value")[0];
-console.log(`\nFHIR R4 Bundle from @cosyte/transform (type ${type}, identifier ${identifier}):`);
+console.log(`\nFHIR R4 Bundle from @cosyte/transform (type ${type}, ${entries.length} entries):`);
 for (const entry of entries) console.log(`  ${entry.type.padEnd(14)} ${entry.fullUrl}`);
 
 const patient = entries.find((entry) => entry.type === "Patient");
 if (patient) {
+  // To see what a field holds, read it into a variable or assert on it. The values in these comments
+  // are synthetic, from @cosyte/synth.
+  const family = stringsAt(patient.resource, "name.family")[0]; // "Quillfeather", synthetic
+  const mrn = stringsAt(patient.resource, "identifier.value")[0]; // "26068087", synthetic
+  const birthDate = stringsAt(patient.resource, "birthDate")[0]; // "1961-08-09", synthetic
+  const counts = ["name", "identifier", "telecom", "address"].map(
+    (element) => `${element} ${nodesAt(patient.resource, element).length}`,
+  );
   console.log("\nPatient (from PID):");
-  field("name", patient.resource, "family {name.family}, given {name.given}");
+  console.log(`  ${"elements".padEnd(11)} ${counts.join(", ")}`);
+  console.log(`  ${"family".padEnd(11)} ${family === undefined ? "absent" : "present"}`);
+  console.log(`  ${"MRN".padEnd(11)} ${mrn === undefined ? "absent" : `${mrn.length} characters`}`);
   for (const id of nodesAt(patient.resource, "identifier")) {
-    field("identifier", id, "{value}, type {type.coding.code}, system {system}");
+    field("identifier", id, "type {type.coding.code}, system {system}");
   }
-  field("gender", patient.resource, "{gender}");
-  field("birthDate", patient.resource, "{birthDate}");
-  for (const address of nodesAt(patient.resource, "address")) {
-    field("address", address, "line {line}, city {city}, state {state}, postalCode {postalCode}");
-  }
+  console.log(`  ${"birthDate".padEnd(11)} precision ${precision(birthDate)}`);
 }
 
 const encounter = entries.find((entry) => entry.type === "Encounter");

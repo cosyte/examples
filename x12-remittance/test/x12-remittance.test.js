@@ -51,8 +51,8 @@ test("npm start prints the payment, each claim with its adjustments, and a balan
   printed(`^  amount\\s+${literal(remittance.payment.totalActualPayment?.toString() ?? "?")} \\(`);
   printed(`^  method\\s+${literal(remittance.payment.method)}$`);
   printed(`^  trace\\s+${literal(remittance.traces[0]?.referenceId ?? "?")}`);
-  for (const claim of remittance.claims.map(describeClaim)) {
-    printed(`^Claim ${literal(claim.patientControlNumber)} `);
+  for (const [index, claim] of remittance.claims.map(describeClaim).entries()) {
+    printed(`^Claim ${index + 1} \\(patient control number and payer claim number present\\)$`);
     printed(`^  status\\s+${literal(`${claim.status} ${claim.statusDescription}`)}$`);
     printed(`^  charged\\s+${literal(claim.charged ?? "?")}$`);
     printed(`^  paid\\s+${literal(claim.paid ?? "?")}$`);
@@ -65,6 +65,26 @@ test("npm start prints the payment, each claim with its adjustments, and a balan
   }
   for (const check of balanceChecks(remittance)) printed(`^  balanced\\s+${literal(check.name)}: `);
   printed("^Warnings \\(parse and 835 reader\\): 0$");
+});
+
+test("npm start prints no value that identifies the patient, and no segment of the 835", async () => {
+  const { stdout } = await run(process.execPath, ["src/main.js"], { cwd: starterDir });
+  const wire = syntheticRemittance(SEED);
+  const { interchange } = readRemittance(wire);
+  const segments = rawSegments(wire, interchange.delimiters);
+  const clp = segmentOf(segments, "CLP");
+  // NM1*QC is the patient: last name, first name and member ID (NM1-03, NM1-04, NM1-09).
+  const patient = segments.find((elements) => elements[0] === "NM1" && elements[1] === "QC");
+  assert.ok(patient, "the synthetic 835 names its patient");
+  const values = [clp[1], clp[7], patient[3], patient[4], patient[9]];
+
+  for (const value of values) {
+    assert.ok(value && !stdout.includes(value), "npm start printed a value that identifies the patient");
+  }
+  for (const elements of segments.filter((elements) => elements.length > 1)) {
+    const segment = elements.join(interchange.delimiters.element).trim();
+    assert.ok(!stdout.includes(segment), `npm start printed a whole ${elements[0]?.trim()} segment`);
+  }
 });
 
 test("the typed reading agrees with the raw BPR, TRN, CLP and CAS segments", () => {

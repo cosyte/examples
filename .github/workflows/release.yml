@@ -30,7 +30,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SCRIPT_UTILS: "@cosyte/script-utils@0.1.12"
+  SCRIPT_UTILS: "@cosyte/script-utils@0.1.13"
   NODE_VERSION: "24"
 
 jobs:

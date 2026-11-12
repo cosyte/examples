@@ -20,8 +20,7 @@ try {
   console.log(
     `Sent a synthetic ADT^A01 (seed ${seed}, control id ${ack.sentControlId}) to ${host}:${port}.`,
   );
-  console.log("ACK received:");
-  for (const segment of ack.segments) console.log(`  ${segment}`);
+  console.log(`ACK received, segments ${ack.segments.map((segment) => segment.slice(0, 3)).join(" ")}.`);
   const match = ack.correlated ? "matches" : "does not match";
   console.log(`MSA-1 is ${ack.code} and MSA-2 ${match} the MSH-10 sent.`);
   if (!ack.accepted || !ack.correlated) process.exitCode = 1;

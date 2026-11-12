@@ -2,7 +2,8 @@
 # A tour of the `cosyte` command from @cosyte/cli over a synthetic HL7 v2 admit message:
 # parse, inspect, validate, convert to FHIR R4 and de-identify. Each step prints the command it
 # runs, what the CLI printed, and the exit code. Run it with `npm start`, or `bash tour.sh` after
-# `npm install`.
+# `npm install`. It never prints a message or a file that holds one, synthetic as they are: only the
+# CLI's value-free output, line counts and segment names.
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -17,7 +18,6 @@ ADT="$OUT/adt-a01.hl7"
 PARSED="$OUT/adt-a01.parsed.json"
 BUNDLE="$OUT/adt-a01.fhir.json"
 REDACTED="$OUT/adt-a01.redacted.hl7"
-PREVIEW_LINES=27
 
 # Print a step heading, with a blank line before every heading but the first.
 headings=0
@@ -57,8 +57,7 @@ run node src/make-fixtures.js "$OUT"
 
 heading "1. parse: detect the format and write the message as typed JSON"
 run_to "$PARSED" cosyte parse "$ADT"
-echo "The first $PREVIEW_LINES of $(wc -l <"$PARSED" | tr -d ' ') lines of $PARSED:"
-head -n "$PREVIEW_LINES" "$PARSED"
+echo "$PARSED holds $(wc -l <"$PARSED" | tr -d ' ') lines of JSON, every value of the message among them."
 
 heading "2. inspect: a value-free summary of the same message"
 run cosyte inspect "$ADT"
@@ -74,5 +73,5 @@ run cosyte inspect "$BUNDLE"
 
 heading "6. redact: a de-identified copy via @cosyte/deid (exit 1, and no copy, if it blocks a locus)"
 run_to "$REDACTED" cosyte redact "$ADT"
-echo "The de-identified message in $REDACTED:"
-tr '\r' '\n' <"$REDACTED" | sed -e '/^$/d' -e 's/^/  /'
+names=$(tr '\r' '\n' <"$REDACTED" | sed '/^$/d' | cut -c1-3 | paste -sd ' ' -)
+echo "The de-identified copy in $REDACTED has the segments $names."

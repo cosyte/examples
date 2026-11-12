@@ -6,6 +6,12 @@ trace to match against your 270, and each benefit line with its service types, c
 amount, and percent. Then build the 270 inquiry that the 271 answers, and match the two by their
 trace.
 
+It prints no value that identifies the member, synthetic as it is: for the name, member ID, date of
+birth, group number, and trace it prints whether each is there, or the precision of a date, and for
+the interchanges only their segment IDs. `src/main.js` reads the member's values into variables, with
+their synthetic values in comments, to show what each holds. Payers and providers are named only
+when they are organizations (`NM1-02` is `2`).
+
 Libraries: [`@cosyte/x12`](https://github.com/cosyte/x12),
 [`@cosyte/synth`](https://github.com/cosyte/synth).
 
@@ -21,37 +27,18 @@ Node 22 or later.
 ## Expected output
 
 ```text
-Synthetic 271 from @cosyte/synth (seed 42):
-  ISA*00*          *00*          *ZZ*SYNSUB448      *ZZ*SYNRCV084      *240321*2317*^*00501*441887323*0*T*:~
-  GS*HB*SYNSUB448*SYNRCV084*20240321*2317*83976*X*005010X279A1~
-  ST*271*7813*005010X279A1~
-  HL*1**20*1~
-  NM1*PR*2*PLACEHOLDER BENEFIT ADMIN*****PI*SYN99074~
-  HL*2*1*21*1~
-  NM1*1P*2*MOCK CARE ASSOCIATES*****XX*5462419363~
-  HL*3*2*22*0~
-  TRN*2*ELIG2231032098~
-  NM1*IL*1*Nonesuch*Sampleton****MI*MBR81711168~
-  N3*7330 Example Boulevard~
-  N4*Mockhaven*NJ*00000~
-  DMG*D8*19521221*M~
-  REF*6P*GRP46142~
-  DTP*307*D8*20240321~
-  EB*1*IND*98^35****717.00*80****Y~
-  SE*15*7813~
-  GE*1*83976~
-  IEA*1*441887323~
+Synthetic 271 from @cosyte/synth (seed 42), segments:
+  ISA GS ST BHT HL NM1 HL NM1 HL TRN NM1 N3 N4 DMG REF DTP EB SE GE IEA
 
-Payer (information source): PLACEHOLDER BENEFIT ADMIN, PI SYN99074
-Provider (information receiver): MOCK CARE ASSOCIATES, XX 5462419363
-Subscriber: Nonesuch, Sampleton
-  member ID        MBR81711168 (MI)
-  date of birth    1952-12-21
-  sex              M
-  group number     GRP46142 (REF 6P)
+Payer (information source): PLACEHOLDER BENEFIT ADMIN, ID qualifier PI
+Provider (information receiver): MOCK CARE ASSOCIATES, ID qualifier XX
+Subscriber: name present
+  member ID        present (MI)
+  date of birth    a day (DMG D8)
+  group number     present (REF 6P)
   plan             not stated
-  eligibility      2024-03-21 (DTP 307)
-  270 trace        ELIG2231032098 (TRN-02, echoed from the inquiry)
+  eligibility      a day (DTP 307)
+  270 traces       1 (TRN-02, echoed from the inquiry)
 
 Benefits (EB):
   1 Active Coverage, coverage level IND, in network Y
@@ -65,34 +52,19 @@ Cost sharing (co-insurance, co-payment, deductible, out of pocket): none stated
 Inquiry rejections (AAA segments): 0
 
 The 270 inquiry this 271 answers, built with build270 (@cosyte/synth writes no 270):
-  ISA*00*          *00*          *ZZ*SYNRCV084      *ZZ*SYNSUB448      *240321*2317*^*00501*000000001*0*T*:~
-  GS*HS*SYNRCV084*SYNSUB448*20240321*2317*1*X*005010X279A1~
-  ST*270*0001*005010X279A1~
-  BHT*0022*13*SYNTHREQ0001*20240321*2317~
-  HL*1**20*1~
-  NM1*PR*2*PLACEHOLDER BENEFIT ADMIN*****PI*SYN99074~
-  HL*2*1*21*1~
-  NM1*1P*2*MOCK CARE ASSOCIATES*****XX*5462419363~
-  HL*3*2*22*0~
-  TRN*1*ELIG2231032098*9SYNTHETIC~
-  NM1*IL*1*Nonesuch*Sampleton****MI*MBR81711168~
-  DMG*D8*19521221*M~
-  EQ*30~
-  SE*12*0001~
-  GE*1*1~
-  IEA*1*000000001~
-  to               PLACEHOLDER BENEFIT ADMIN, PI SYN99074
-  from             MOCK CARE ASSOCIATES, XX 5462419363
-  about            Nonesuch, Sampleton, MI MBR81711168
+  ISA GS ST BHT HL NM1 HL NM1 HL TRN NM1 DMG EQ SE GE IEA
+  to               PLACEHOLDER BENEFIT ADMIN, ID qualifier PI
+  from             MOCK CARE ASSOCIATES, ID qualifier XX
+  about            a person, name not printed, ID qualifier MI
   asks for         30 Health Benefit Plan Coverage
-  trace            ELIG2231032098 (TRN-02), originator 9SYNTHETIC (TRN-03)
+  trace            TRN-02 present, originator 9SYNTHETIC (TRN-03)
   The 271 echoes this trace, so it answers this 270.
 
 Warnings (parse, 271 and 270 readers): 0
 ```
 
 The same seed gives the same output on every run. The payer is the information source (Loop 2100A),
-the provider is the information receiver (Loop 2100B), and the `270 trace` is the value the payer
+the provider is the information receiver (Loop 2100B), and the `270 traces` are the values the payer
 echoes from your inquiry so you can match the answer to the question. The 270 at the end is that
 inquiry: the provider asks the payer about the member for service type 30, and the 271 carries its
 trace back.
@@ -103,8 +75,9 @@ trace back.
 npm test
 ```
 
-The test runs `src/main.js` and checks the payer, member ID, group number, trace, benefit lines,
-coverage status, and 270 trace it prints against a fresh reading of the same 271. It then splits the
+The test runs `src/main.js` and checks the payer, the lines for the member, the benefit lines,
+coverage status, and 270 trace it prints against a fresh reading of the same 271, and that the output
+holds no value that identifies the member and no segment of the 271 or the 270. It then splits the
 271 into segments by hand, without the library, and checks each value the typed reader returned
 against the raw `NM1`, `REF`, `TRN`, and `EB` segments. A third test builds a small 271 with
 co-payment, deductible, and co-insurance lines through `build271` and checks their labels, and that
@@ -140,8 +113,10 @@ on synthetic data.
 4. `describeSubscriber` in `src/eligibility.js` turns that into the facts a front desk asks for. It
    labels the seven `EB-01` benefit types it knows (active coverage, inactive, co-insurance,
    co-payment, deductible, out of pocket, non-covered) and prints any other code as sent. Coverage
-   status comes from `EB-01` codes 1 to 8, cost sharing from `A`, `B`, `C`, and `G`. Dates print
-   through `toISO`, which reads a `D8` day as `YYYY-MM-DD`.
+   status comes from `EB-01` codes 1 to 8, cost sharing from `A`, `B`, `C`, and `G`. `src/main.js`
+   prints each date's precision from its format qualifier (`D8` a day, `RD8` a range of days);
+   `formatDate` in `src/eligibility.js` reads a `D8` day as `YYYY-MM-DD` through `toISO` when you
+   need the value itself.
 5. The `AAA` conditions tell a rejected inquiry from a member with no benefit lines, since both come
    back with no benefits. `describeRejection` prints each one with the payer's reject reason
    (`AAA-03`) and follow-up action (`AAA-04`) codes as sent.
@@ -173,8 +148,8 @@ The code is in [`src/eligibility.js`](src/eligibility.js) and [`src/main.js`](sr
 - The labels cover seven `EB-01` codes, two `DTP-01` qualifiers (`307`, `291`), and two `REF-01`
   qualifiers (`6P`, `18`). Coverage level, network, time period, and any other code print as sent.
   Dependents (Loop 2000D) are on `subscriber.dependents` and are not printed.
-- The output shows a subscriber name, member ID, and date of birth because the data is synthetic. A
-  production service should not write PHI to its logs.
+- The output says whether a subscriber name, member ID, and date of birth are there and never prints
+  them, synthetic as they are. A production service should not write PHI to its logs either.
 
 ## Synthetic data
 

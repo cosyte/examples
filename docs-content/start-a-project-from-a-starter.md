@@ -47,8 +47,9 @@ belongs in a test, a fixture or a log.
 Each starter's page has a section, "Before you build on it", that lists what the starter does not
 do for production. The ones that come up most:
 
-- **Logs.** Several starters print patient names and identifiers because their data is synthetic.
-  Remove those lines, or log only the value-free summaries the libraries give you.
+- **Logs.** No starter prints a value that identifies a person, so its output is safe to log as it
+  is. Keep it that way as you add to it: see
+  [What is safe to log](./how-the-starters-are-built.md#what-is-safe-to-log).
 - **The network.** The MLLP listener binds `127.0.0.1` only and speaks plain MLLP. To accept
   connections from other machines, bind another address and turn on TLS.
 - **The checks that exit 1.** `deid-hl7` and `dicom-metadata` exit 1 when an identifier survives,
