@@ -22,7 +22,7 @@ they are listed in `package.json` beside it.
 
 ```text
 Synthetic ADT^A01 from @cosyte/synth (seed 12345):
-  MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|20220305042943||ADT^A01|SYNTH4722901508|P|2.5
+  MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|20220305042943||ADT^A01|SYNTH4722901508|T|2.5
   EVN|A01|20220305042943
   PID|1||26068087^^^COSYTE-SYNTH^MR||Quillfeather^Fixtura||19610809|M|||7117 Sample Street^^Synthville^MN^00000||(528) 555-0105||||||969217321
   PV1|1|E|SYNTHWARD^909^01
@@ -46,6 +46,7 @@ Encounter (from PV1):
 
 Transform diagnostics (severity, code, v2 location, FHIR path):
   information  TRANSFORM_ELEMENT_DROPPED           PID.13  Patient.telecom
+  information  TRANSFORM_ELEMENT_DROPPED           PID.19  Patient.identifier
   information  TRANSFORM_ELEMENT_DROPPED           PV1.3   Encounter.location
   information  TRANSFORM_REQUIRED_ELEMENT_UNKNOWN  MSH.3   MessageHeader.source.endpoint
   warning      TRANSFORM_TIMESTAMP_NO_TIMEZONE     TS.1    dateTime
@@ -56,8 +57,8 @@ Validation with @cosyte/fhir (strict mode, starter-kit profiles):
   Bundle         errors 0, warnings 0, information 1 (RESOURCE_NOT_MODELED)
   MessageHeader  errors 0, warnings 0, information 1 (RESOURCE_NOT_MODELED)
   Patient        errors 0, warnings 0, information 0
-  Encounter      errors 0, warnings 0, information 1 (RESOURCE_NOT_MODELED)
-  Total          0 fatal, 0 errors, 0 warnings, 3 information
+  Encounter      errors 0, warnings 0, information 0
+  Total          0 fatal, 0 errors, 0 warnings, 2 information
 ```
 
 ## Test
@@ -96,7 +97,23 @@ on synthetic data.
 - `deidentifyFhir` from `@cosyte/deid` de-identifies each Bundle: no PID value is left in it, in the
   manifest, or in the residual list, nothing is blocked, a ZIP code keeps at most three digits, the
   Bundle reads back with `@cosyte/fhir` with no new issue, and the clinical codes are unchanged.
-- The full suite runs the same checks over 250 seeds of every kind.
+- One animal patient goes through every package. `generateAdt({ subject: "animal" })` from
+  `@cosyte/synth` writes a veterinary ADT (the pet's name in `PID-5`, a microchip in `PID-3`, the
+  species in `PID-35`, the breed in `PID-36`, the owner in an `NK1`). It crosses a real MLLP link on
+  127.0.0.1 (`@cosyte/mllp`), whose listener runs the rest before it answers AA: `@cosyte/hl7` reads
+  `patient.species` and `patient.breed`, `@cosyte/transform` writes them to the `patient-animal`
+  extension, `readPatientAnimal` from `@cosyte/fhir` reads them back, the Patient validates against
+  `VETERINARY_PATIENT_STARTER`, and `@cosyte/deid` de-identifies the HL7 v2 message and the Bundle.
+  At every step species and breed come out as they went in, or the step says it lost them (an issue,
+  or a manifest row); a step that loses either with no word fails the test. Both de-identified
+  outputs keep no pet name, microchip, record number, owner name, or street. The seeds cover a horse,
+  a dog, a cat, and cattle.
+- The HL7 v2 de-identification keeps `PID-35` and `PID-36` and removes `PID-5`, the microchip in
+  `PID-3`, and the owner's name in `NK1-2`. The FHIR de-identification blocks every extension value,
+  the `patient-animal` extension included, and records each in its manifest, so the Bundle it
+  returns has no species or breed. A `todo` test marks that until `@cosyte/deid` keeps them.
+- The full suite runs the same checks over 250 seeds of every kind, and over 250 seeds of each animal
+  ADT trigger (A01, A04, A08).
 
 ## How it works
 
@@ -135,14 +152,14 @@ The code is in [`src/convert.js`](src/convert.js) and [`src/main.js`](src/main.j
 
 ## Limits
 
-- On the 0.1 line, `@cosyte/fhir` has no structural schema for `Bundle`, `MessageHeader`, or
-  `Encounter`. For those three it checks the base resource elements and the safety rules, and
-  reports `RESOURCE_NOT_MODELED` (information) to say that their own elements were not checked. Zero
-  errors here is not a full FHIR conformance verdict.
+- On the 0.1 line, `@cosyte/fhir` has no structural schema for `Bundle` or `MessageHeader`. For
+  those two it checks the base resource elements and the safety rules, and reports
+  `RESOURCE_NOT_MODELED` (information) to say that their own elements were not checked. Zero errors
+  here is not a full FHIR conformance verdict.
 - The Patient carries `PID-3` (identifiers), `PID-5` (name), `PID-7` (birth date), `PID-8` (sex),
-  and `PID-11` (address). `PID-13` (phone) and `PV1-3` (location) are dropped with a diagnostic.
-  `PID-19` (SSN) is dropped without one by `@cosyte/transform` on the 0.1 line, although the
-  implementation guide maps it to `Patient.identifier`.
+  and `PID-11` (address), and for an animal `PID-35` (species) and `PID-36` (breed) in the
+  `patient-animal` extension. `PID-13` (phone), `PID-19` (SSN) and `PV1-3` (location) are dropped,
+  each with a diagnostic.
 - On the 0.1 line of `@cosyte/fhir`, `resolvePath` returns a repeating element named by the last
   path segment (`entry`, `name.given`) as one list node rather than its items. `nodesAt` in
   [`src/convert.js`](src/convert.js) flattens it.

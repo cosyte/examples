@@ -3,10 +3,20 @@
 // readers over the FHIR JSON the pipeline writes.
 import assert from "node:assert/strict";
 import { deidentifyFhir } from "@cosyte/deid/fhir";
-import { STARTER_PROFILES, parseResource, resourceType, serializeResource, validateResource } from "@cosyte/fhir";
+import { deidentifyHl7 } from "@cosyte/deid/hl7";
+import {
+  STARTER_PROFILES,
+  VETERINARY_PATIENT_STARTER,
+  parseResource,
+  readPatientAnimal,
+  resourceType,
+  serializeResource,
+  validateResource,
+} from "@cosyte/fhir";
+import { createStarterClient, createStarterServer } from "@cosyte/mllp";
 import { generateAdt, generateOrm, generateOru, generateSiu, generateVxu } from "@cosyte/synth/hl7";
 import { validateUcum } from "@cosyte/terminology";
-import { bundleEntries, convertToFhir, MRN_SYSTEM } from "../../src/convert.js";
+import { bundleEntries, convertToFhir, MRN_SYSTEM, stringsAt } from "../../src/convert.js";
 
 /**
  * Coding systems the transform writes that the @cosyte/terminology identity table does not resolve on
@@ -192,4 +202,279 @@ export function checkMessage(wire, label) {
   for (const address of resourcesOf(JSON.parse(text), "Patient").flatMap((resource) => resource.address)) {
     assert.ok(String(address.postalCode).length <= 3, `${label}: a ZIP code kept more than three digits`);
   }
+}
+
+/** The MLLP link in the animal pipeline binds loopback only. */
+export const LOOPBACK = "127.0.0.1";
+
+/** The ADT triggers @cosyte/synth generates for an animal patient. */
+export const ANIMAL_TRIGGERS = Object.freeze(["A01", "A04", "A08"]);
+
+/**
+ * A synthetic veterinary ADT from @cosyte/synth: the pet's name in PID-5, the record number and a
+ * microchip in PID-3, the species in PID-35, the breed in PID-36, and the owner in an NK1.
+ *
+ * @param {number} seed
+ * @param {string} trigger one of {@link ANIMAL_TRIGGERS}
+ * @returns {string}
+ */
+export function animalAdt(seed, trigger) {
+  return generateAdt({ seed, trigger: /** @type {"A01"} */ (trigger), subject: "animal" }).toString();
+}
+
+/**
+ * Field `index` of the first `name` segment, read straight from the wire text with no parser, so the
+ * pipeline is checked against what the generator wrote rather than against its own reading.
+ *
+ * @param {string} wire
+ * @param {string} name a segment name, for example "PID"
+ * @param {number} index the field number, as in "PID-35"
+ * @returns {string}
+ */
+export function fieldOf(wire, name, index) {
+  const segment = wire.split("\r").find((line) => line.startsWith(`${name}|`));
+  assert.ok(segment, `the message has no ${name} segment`);
+  // MSH-1 is the field separator itself, so in MSH the split is one field behind the numbering.
+  const position = name === "MSH" ? index - 1 : index;
+  const fields = segment.split("|");
+  assert.ok(position < fields.length, `${name} has no field ${index}`);
+  return fields[position];
+}
+
+/**
+ * @typedef {{ code: string | undefined, text: string | undefined }} Coded
+ */
+
+/**
+ * What the generator put in an animal ADT: the species and breed (code and text), and the values that
+ * identify the animal or its owner, which de-identification must remove.
+ *
+ * @param {string} wire
+ */
+export function animalSource(wire) {
+  /** @param {string} cwe @returns {Coded} */
+  const coded = (cwe) => {
+    const [code, text] = cwe.split("^");
+    return { code, text };
+  };
+  const identifiers = fieldOf(wire, "PID", 3)
+    .split("~")
+    .map((repetition) => repetition.split("^"));
+  const microchipIndex = identifiers.findIndex((parts) => parts[4] === "MCN");
+  const record = identifiers.find((parts) => parts[4] === "MR");
+  assert.ok(microchipIndex >= 0 && record, "the animal PID-3 carries a record number and a microchip");
+  const [family, petName] = fieldOf(wire, "PID", 5).split("^");
+  const [ownerFamily, ownerGiven] = fieldOf(wire, "NK1", 2).split("^");
+  assert.equal(fieldOf(wire, "NK1", 3).split("^")[0], "OWN", "the NK1 is the owner");
+  return {
+    species: coded(fieldOf(wire, "PID", 35)),
+    breed: coded(fieldOf(wire, "PID", 36)),
+    microchipIndex,
+    identifiers: {
+      petName,
+      family,
+      microchip: identifiers[microchipIndex][0],
+      record: record[0],
+      ownerFamily,
+      ownerGiven,
+      street: fieldOf(wire, "PID", 11).split("^")[0],
+    },
+  };
+}
+
+/**
+ * Code and text of an HL7 v2 CWE as @cosyte/hl7 reads it, or undefined when the field is empty.
+ *
+ * @param {import("@cosyte/hl7").CWE | undefined} cwe
+ * @returns {Coded | undefined}
+ */
+export function codedFromCwe(cwe) {
+  return cwe === undefined ? undefined : { code: cwe.identifier, text: cwe.text };
+}
+
+/**
+ * Code and display of the first coding of a FHIR CodeableConcept, or undefined when there is none.
+ *
+ * @param {import("@cosyte/fhir").FhirComplex | undefined} concept
+ * @returns {Coded | undefined}
+ */
+export function codedFromConcept(concept) {
+  return concept === undefined
+    ? undefined
+    : { code: stringsAt(concept, "coding.code")[0], text: stringsAt(concept, "coding.display")[0] };
+}
+
+/**
+ * The rule every step of the animal pipeline is held to: species and breed either come out as they
+ * went in, or the step says it lost them. A silent loss fails, naming the step and the part, never a
+ * value. Returns which of the two happened.
+ *
+ * @param {string} step
+ * @param {"species" | "breed"} part
+ * @param {Coded} expected what the generator wrote
+ * @param {Coded | undefined} actual what the step gave back
+ * @param {boolean} declared whether the step raised an issue or a manifest row for this part
+ * @returns {"kept" | "declared"}
+ */
+export function assertCarried(step, part, expected, actual, declared) {
+  if (actual !== undefined && actual.code === expected.code && actual.text === expected.text) return "kept";
+  assert.ok(declared, `${step}: ${part} was lost with no issue`);
+  return "declared";
+}
+
+/**
+ * The FHIR locus of one part of the Patient's patient-animal extension in a Bundle, as
+ * @cosyte/deid names it in its manifest.
+ *
+ * @param {{ entry: { resource: any }[] }} bundle the Bundle as JSON
+ * @param {"species" | "breed"} part
+ * @returns {string}
+ */
+export function animalLocus(bundle, part) {
+  const entry = bundle.entry.findIndex((item) => item.resource.resourceType === "Patient");
+  const extensions = bundle.entry[entry].resource.extension;
+  const animal = extensions.findIndex((/** @type {any} */ item) => item.url === PATIENT_ANIMAL_URL);
+  const index = extensions[animal].extension.findIndex((/** @type {any} */ item) => item.url === part);
+  return `Bundle.entry[${entry}].resource.extension[${animal}].extension[${index}].valueCodeableConcept`;
+}
+
+const PATIENT_ANIMAL_URL = "http://hl7.org/fhir/StructureDefinition/patient-animal";
+
+/**
+ * What the receiving end of the animal pipeline does with each message it is handed by the MLLP
+ * listener: parse it with @cosyte/hl7 and convert it with @cosyte/transform (the starter's
+ * `convertToFhir`), then de-identify both the HL7 v2 message and the FHIR Bundle with @cosyte/deid.
+ *
+ * @param {Buffer} payload the message as received, framing stripped
+ */
+export function receiveAnimal(payload) {
+  const wire = payload.toString();
+  const { message, bundle, issues } = convertToFhir(wire);
+  return { wire, message, bundle, issues, hl7: deidentifyHl7(message), fhir: deidentifyFhir(bundle) };
+}
+
+/** @typedef {ReturnType<typeof receiveAnimal>} AnimalReceipt */
+
+/**
+ * Send each message over a real MLLP link on 127.0.0.1 to a listener that runs {@link receiveAnimal}
+ * before it answers, so an AA means the whole receiving pipeline ran. Returns the ACK text for each
+ * message and what the listener produced, in order.
+ *
+ * @param {readonly string[]} wires
+ * @returns {Promise<{ acks: string[], receipts: AnimalReceipt[] }>}
+ */
+export async function sendAnimals(wires) {
+  /** @type {AnimalReceipt[]} */
+  const receipts = [];
+  const server = await createStarterServer({
+    port: 0,
+    host: LOOPBACK,
+    onMessage: (payload) => void receipts.push(receiveAnimal(Buffer.from(payload))),
+  });
+  try {
+    const { host, port } = server.getStats();
+    assert.equal(host, LOOPBACK, "the listener is bound to loopback only");
+    assert.ok(port, "the listener is bound to a port");
+    const client = await createStarterClient({ host: LOOPBACK, port, autoReconnect: false, ackTimeoutMs: 10_000 });
+    try {
+      /** @type {string[]} */
+      const acks = [];
+      for (const wire of wires) acks.push((await client.send(Buffer.from(wire))).toString());
+      return { acks, receipts };
+    } finally {
+      await client.close();
+    }
+  } finally {
+    await server.close();
+  }
+}
+
+/**
+ * Check one animal message at every step of the pipeline: the MLLP link, @cosyte/hl7's typed
+ * fields, @cosyte/transform's patient-animal extension read back with @cosyte/fhir's
+ * `readPatientAnimal`, and both de-identifications. At each step species and breed are kept or the
+ * loss is declared ({@link assertCarried}); the pet's name, the microchip and the owner's name are
+ * gone from both de-identified outputs. Returns, for the FHIR de-identification, which of the two
+ * happened to each part.
+ *
+ * @param {string} sent the wire text that was sent
+ * @param {string} ack the ACK text the sender got back
+ * @param {AnimalReceipt} receipt what the listener produced
+ * @param {string} label
+ */
+export function checkAnimal(sent, ack, receipt, label) {
+  const source = animalSource(sent);
+  const secrets = Object.values(source.identifiers);
+  const msa = ack.split("\r").find((segment) => segment.startsWith("MSA|"));
+  assert.equal(msa, `MSA|AA|${fieldOf(sent, "MSH", 10)}`, `${label}: the receiving pipeline did not accept the message`);
+
+  // MLLP: the bytes arrive as sent.
+  assert.equal(receipt.wire, sent, `${label}: the message changed on the MLLP link`);
+
+  // @cosyte/hl7: species and breed read by name, with no parse warning. The typed reader has no
+  // issue of its own for a field it leaves out, so here a loss is never declared.
+  const { message } = receipt;
+  assert.deepEqual(message.warnings, [], `${label}: the animal ADT parses with warnings`);
+  assert.ok(message.patient, `${label}: no typed patient`);
+  for (const part of /** @type {const} */ (["species", "breed"])) {
+    assertCarried(`${label} hl7`, part, source[part], codedFromCwe(message.patient[part]), false);
+  }
+
+  // @cosyte/transform, read back with @cosyte/fhir: the patient-animal extension carries both parts,
+  // and the Patient validates against the veterinary starter profile.
+  const patient = bundleEntries(receipt.bundle).find((entry) => entry.type === "Patient");
+  assert.ok(patient, `${label}: no Patient`);
+  const animal = readPatientAnimal(patient.resource);
+  assert.ok(animal, `${label}: the Patient has no patient-animal extension`);
+  assert.deepEqual(animal.issues, [], `${label}: the patient-animal extension reads back with issues`);
+  for (const part of /** @type {const} */ (["species", "breed"])) {
+    const location = part === "species" ? "PID.35" : "PID.36";
+    const declared = receipt.issues.some((issue) => issue.v2Location === location);
+    assert.equal(assertCarried(`${label} transform`, part, source[part], codedFromConcept(animal[part]), declared), "kept");
+  }
+  const profiles = [...STARTER_PROFILES, VETERINARY_PATIENT_STARTER];
+  const errors = validateResource(patient.resource, { mode: "strict", profiles }).issues.filter(
+    (issue) => issue.severity === "error" || issue.severity === "fatal",
+  );
+  assert.deepEqual(errors, [], `${label}: the Patient fails the veterinary starter profile`);
+  assertAbsent(JSON.stringify(receipt.issues), secrets, `${label}: the transform diagnostics`);
+
+  // @cosyte/deid on the HL7 v2 message: species and breed kept, the pet's name, the microchip and the
+  // owner's name removed, each with its manifest row.
+  const hl7 = receipt.hl7;
+  assert.ok(hl7.document.patient, `${label}: no typed patient after de-identification`);
+  for (const part of /** @type {const} */ (["species", "breed"])) {
+    const field = part === "species" ? "PID-35" : "PID-36";
+    const declared = hl7.manifest.some((entry) => entry.locus.startsWith(field));
+    assert.equal(assertCarried(`${label} hl7 deid`, part, source[part], codedFromCwe(hl7.document.patient[part]), declared), "kept");
+  }
+  const removed = hl7.manifest.filter((entry) => entry.disposition === "removed").map((entry) => entry.locus);
+  for (const locus of ["PID-5", `PID-3[${source.microchipIndex}]`, "NK1-2"]) {
+    assert.ok(removed.includes(locus), `${label}: the HL7 v2 de-identification did not remove ${locus}`);
+  }
+  assertAbsent(hl7.document.toString(), secrets, `${label}: the de-identified HL7 v2 message`);
+  assertAbsent(JSON.stringify(hl7.manifest), secrets, `${label}: the HL7 v2 manifest`);
+  assertAbsent(JSON.stringify(hl7.unexaminedResiduals), secrets, `${label}: the HL7 v2 residual list`);
+
+  // @cosyte/deid on the FHIR Bundle: the same identifiers gone, and species and breed kept or their
+  // removal recorded in the manifest.
+  const { document, manifest, unexaminedResiduals } = receipt.fhir;
+  const text = serializeResource(document);
+  assertAbsent(text, secrets, `${label}: the de-identified Bundle`);
+  assertAbsent(JSON.stringify(manifest), secrets, `${label}: the FHIR manifest`);
+  assertAbsent(JSON.stringify(unexaminedResiduals), secrets, `${label}: the FHIR residual list`);
+  const before = JSON.parse(serializeResource(receipt.bundle));
+  const after = bundleEntries(document).find((entry) => entry.type === "Patient");
+  assert.ok(after, `${label}: the de-identified Bundle has no Patient`);
+  const kept = readPatientAnimal(after.resource);
+  assert.ok(kept, `${label}: the de-identified Patient lost its patient-animal extension`);
+  /** @type {Record<"species" | "breed", "kept" | "declared">} */
+  const outcome = { species: "declared", breed: "declared" };
+  for (const part of /** @type {const} */ (["species", "breed"])) {
+    const locus = animalLocus(before, part);
+    // Any manifest row at the locus records what the pass did there.
+    const declared = manifest.some((entry) => entry.locus === locus);
+    outcome[part] = assertCarried(`${label} fhir deid`, part, source[part], codedFromConcept(kept[part]), declared);
+  }
+  return outcome;
 }

@@ -68,7 +68,7 @@ What `npm start` prints, as the starter's README gives it. This section and the 
 
 ```text
 Synthetic ADT^A01 from @cosyte/synth (seed 12345):
-  MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|20220305042943||ADT^A01|SYNTH4722901508|P|2.5
+  MSH|^~\&|COSYTE-SYNTH|SYNTH-FAC|RECEIVER|RECV-FAC|20220305042943||ADT^A01|SYNTH4722901508|T|2.5
   EVN|A01|20220305042943
   PID|1||26068087^^^COSYTE-SYNTH^MR||Quillfeather^Fixtura||19610809|M|||7117 Sample Street^^Synthville^MN^00000||(528) 555-0105||||||969217321
   PV1|1|E|SYNTHWARD^909^01
@@ -92,6 +92,7 @@ Encounter (from PV1):
 
 Transform diagnostics (severity, code, v2 location, FHIR path):
   information  TRANSFORM_ELEMENT_DROPPED           PID.13  Patient.telecom
+  information  TRANSFORM_ELEMENT_DROPPED           PID.19  Patient.identifier
   information  TRANSFORM_ELEMENT_DROPPED           PV1.3   Encounter.location
   information  TRANSFORM_REQUIRED_ELEMENT_UNKNOWN  MSH.3   MessageHeader.source.endpoint
   warning      TRANSFORM_TIMESTAMP_NO_TIMEZONE     TS.1    dateTime
@@ -102,8 +103,8 @@ Validation with @cosyte/fhir (strict mode, starter-kit profiles):
   Bundle         errors 0, warnings 0, information 1 (RESOURCE_NOT_MODELED)
   MessageHeader  errors 0, warnings 0, information 1 (RESOURCE_NOT_MODELED)
   Patient        errors 0, warnings 0, information 0
-  Encounter      errors 0, warnings 0, information 1 (RESOURCE_NOT_MODELED)
-  Total          0 fatal, 0 errors, 0 warnings, 3 information
+  Encounter      errors 0, warnings 0, information 0
+  Total          0 fatal, 0 errors, 0 warnings, 2 information
 ```
 
 ## Files
@@ -129,13 +130,14 @@ The starter's code, every file of `hl7-to-fhir/` as this release holds it, excep
     "test:full": "node --test --experimental-test-coverage --test-coverage-include=test/integration/support.js --test-coverage-exclude=node_modules/** --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 test/*.test.js test/integration/*.test.js"
   },
   "dependencies": {
-    "@cosyte/fhir": "^0.1.0",
-    "@cosyte/hl7": "^0.1.0",
-    "@cosyte/synth": "^0.1.0",
-    "@cosyte/transform": "^0.1.0"
+    "@cosyte/fhir": "^0.1.16",
+    "@cosyte/hl7": "^0.1.13",
+    "@cosyte/synth": "^0.1.10",
+    "@cosyte/transform": "^0.2.4"
   },
   "devDependencies": {
-    "@cosyte/deid": "^0.1.0",
+    "@cosyte/deid": "^0.2.12",
+    "@cosyte/mllp": "^0.1.13",
     "@cosyte/terminology": "^0.1.0"
   }
 }
