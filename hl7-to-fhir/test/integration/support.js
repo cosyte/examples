@@ -433,10 +433,8 @@ export function checkAnimal(sent, ack, receipt, label) {
     assert.equal(assertCarried(`${label} transform`, part, source[part], codedFromConcept(animal[part]), declared), "kept");
   }
   const profiles = [...STARTER_PROFILES, VETERINARY_PATIENT_STARTER];
-  const errors = validateResource(patient.resource, { mode: "strict", profiles }).issues.filter(
-    (issue) => issue.severity === "error" || issue.severity === "fatal",
-  );
-  assert.deepEqual(errors, [], `${label}: the Patient fails the veterinary starter profile`);
+  const { issues: found } = validateResource(patient.resource, { mode: "strict", profiles });
+  assert.deepEqual(found, [], `${label}: the Patient has issues under the veterinary starter profile`);
   assertAbsent(JSON.stringify(receipt.issues), secrets, `${label}: the transform diagnostics`);
 
   // @cosyte/deid on the HL7 v2 message: species and breed kept, the pet's name, the microchip and the

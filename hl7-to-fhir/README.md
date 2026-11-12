@@ -103,7 +103,7 @@ on synthetic data.
   127.0.0.1 (`@cosyte/mllp`), whose listener runs the rest before it answers AA: `@cosyte/hl7` reads
   `patient.species` and `patient.breed`, `@cosyte/transform` writes them to the `patient-animal`
   extension, `readPatientAnimal` from `@cosyte/fhir` reads them back, the Patient validates against
-  `VETERINARY_PATIENT_STARTER`, and `@cosyte/deid` de-identifies the HL7 v2 message and the Bundle.
+  `VETERINARY_PATIENT_STARTER` with no issue, and `@cosyte/deid` de-identifies the HL7 v2 message and the Bundle.
   At every step species and breed come out as they went in, or the step says it lost them (an issue,
   or a manifest row); a step that loses either with no word fails the test. Both de-identified
   outputs keep no pet name, microchip, record number, owner name, or street. The seeds cover a horse,
